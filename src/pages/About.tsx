@@ -75,11 +75,17 @@ export default function About() {
                         <span className="text-white font-semibold">
                           Bliximstraat
                         </span>{" "}
-                        is a project built on late-night momentum, neon paranoia,
-                        and the kind of melodies that feel like they’ve been waiting
-                        for you in the dark. It’s music made for city drives,
-                        crowded rooms, and that weird quiet moment after the lights
-                        go out.
+                        is a unique Afrikaans music project that blends modern sounds with deep,
+                        honest lyrics. The music moves between danceable and introspective, with themes
+                        focused on life, consciousness, emotion, and the realities of the street.
+                        <br /><br />
+                        Although the music is created with the help of AI technology, every lyric
+                        is originally written, with meaning and feeling at its core. Bliximstraat
+                        stands for authenticity, thought, and movement — music that makes you feel,
+                        think, and dance.
+                        <br /><br />
+                        The project’s mission is to push Afrikaans music forward by merging
+                        technology and creativity, without sacrificing soul or storytelling.
                       </p>
 
                       <p>
@@ -97,23 +103,26 @@ export default function About() {
                     </div>
                   </motion.div>
 
-                  {/* IMAGE CARD – FILLS ENTIRE BUBBLE */}
+                  {/* IMAGE CARD – SHOW FULL IMAGE (NO CROPPING) */}
                   <motion.div
-                    initial={{ opacity: 0, y: 18 }}
-                    whileInView={{ opacity: 1, y: 0 }}
-                    viewport={{ once: true, amount: 0.2 }}
-                    transition={{ duration: 0.4, delay: 0.05 }}
-                    className="relative overflow-hidden rounded-2xl border border-white/10 bg-black/40 backdrop-blur-sm min-h-[320px]"
-                  >
-                    <img
-                      src={pieterImage}
-                      alt="Artist portrait"
-                      className="absolute inset-0 h-full w-full object-cover"
-                    />
+  initial={{ opacity: 0, y: 18 }}
+  whileInView={{ opacity: 1, y: 0 }}
+  viewport={{ once: true, amount: 0.2 }}
+  transition={{ duration: 0.4, delay: 0.05 }}
+  className="relative overflow-hidden rounded-2xl border border-white/10 bg-black/40 backdrop-blur-sm
+             min-h-[320px] lg:min-h-[420px]"
+>
+  <img
+    src={pieterImage}
+    alt="Artist portrait"
+    className="absolute inset-0 w-full h-full object-cover"
+    draggable={false}
+  />
 
-                    {/* subtle dark overlay for consistency */}
-                    <div className="absolute inset-0 bg-black/10" />
-                  </motion.div>
+  {/* subtle overlay so it matches the UI */}
+  <div className="absolute inset-0 bg-black/15 pointer-events-none" />
+</motion.div>
+
                 </div>
 
                 {/* QUICK FACTS */}
