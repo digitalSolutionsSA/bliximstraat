@@ -1,3 +1,5 @@
+import PageContainer from "../layout/PageContainer";
+
 type Song = {
   title: string;
   artist: string;
@@ -19,15 +21,30 @@ const latestSongs: Song[] = [
 ];
 
 const upcomingShows: Show[] = [
-  { title: "Live at The Warehouse", venue: "The Warehouse", city: "Johannesburg", date: "Fri 14 Feb" },
-  { title: "Street Session", venue: "Rooftop Stage", city: "Pretoria", date: "Sat 22 Feb" },
-  { title: "Late Night Set", venue: "Underground Bar", city: "Vanderbijlpark", date: "Sat 01 Mar" },
+  {
+    title: "Live at The Warehouse",
+    venue: "The Warehouse",
+    city: "Johannesburg",
+    date: "Fri 14 Feb",
+  },
+  {
+    title: "Street Session",
+    venue: "Rooftop Stage",
+    city: "Pretoria",
+    date: "Sat 22 Feb",
+  },
+  {
+    title: "Late Night Set",
+    venue: "Underground Bar",
+    city: "Vanderbijlpark",
+    date: "Sat 01 Mar",
+  },
 ];
 
 export default function HomeHighlights() {
   return (
     <section className="bg-white text-black">
-      <div className="mx-auto max-w-6xl px-6 py-16">
+      <PageContainer className="py-12 sm:py-14 md:py-16">
         <div className="flex flex-col gap-2">
           <h2 className="text-3xl md:text-4xl font-extrabold tracking-tight">
             Latest drops & upcoming shows
@@ -56,15 +73,19 @@ export default function HomeHighlights() {
                   key={`${s.title}-${s.artist}`}
                   className="rounded-2xl border border-black/10 bg-white p-4 shadow-sm hover:shadow-md transition"
                 >
-                  <div className="text-xs font-semibold text-black/50">{s.date}</div>
-                  <div className="mt-2 text-lg font-extrabold leading-tight">{s.title}</div>
+                  <div className="text-xs font-semibold text-black/50">
+                    {s.date}
+                  </div>
+                  <div className="mt-2 text-lg font-extrabold leading-tight">
+                    {s.title}
+                  </div>
                   <div className="mt-1 text-sm text-black/65">{s.artist}</div>
 
-                  <div className="mt-4 flex gap-2">
-                    <button className="rounded-xl bg-black text-white px-4 py-2 text-sm font-semibold hover:bg-black/90 transition">
+                  <div className="mt-4 flex flex-col sm:flex-row gap-2">
+                    <button className="w-full sm:w-auto rounded-xl bg-black text-white px-4 py-2 text-sm font-semibold hover:bg-black/90 transition">
                       Play
                     </button>
-                    <button className="rounded-xl border border-black/15 px-4 py-2 text-sm font-semibold hover:bg-black/5 transition">
+                    <button className="w-full sm:w-auto rounded-xl border border-black/15 px-4 py-2 text-sm font-semibold hover:bg-black/5 transition">
                       Details
                     </button>
                   </div>
@@ -89,24 +110,28 @@ export default function HomeHighlights() {
               {upcomingShows.map((sh) => (
                 <div
                   key={`${sh.title}-${sh.date}`}
-                  className="rounded-2xl border border-black/10 bg-white p-4 shadow-sm hover:shadow-md transition flex items-start gap-4"
+                  className="rounded-2xl border border-black/10 bg-white p-4 shadow-sm hover:shadow-md transition flex flex-col sm:flex-row items-start gap-4"
                 >
-                  <div className="min-w-[96px] rounded-xl bg-black text-white px-3 py-2 text-center">
-                    <div className="text-xs uppercase tracking-widest text-white/70">Date</div>
+                  <div className="w-full sm:w-auto sm:min-w-[96px] rounded-xl bg-black text-white px-3 py-2 text-center">
+                    <div className="text-xs uppercase tracking-widest text-white/70">
+                      Date
+                    </div>
                     <div className="mt-1 font-extrabold">{sh.date}</div>
                   </div>
 
-                  <div className="flex-1">
-                    <div className="text-lg font-extrabold leading-tight">{sh.title}</div>
+                  <div className="flex-1 w-full">
+                    <div className="text-lg font-extrabold leading-tight">
+                      {sh.title}
+                    </div>
                     <div className="mt-1 text-sm text-black/70">
                       {sh.venue} • {sh.city}
                     </div>
 
-                    <div className="mt-3 flex gap-2">
-                      <button className="rounded-xl bg-black text-white px-4 py-2 text-sm font-semibold hover:bg-black/90 transition">
+                    <div className="mt-3 flex flex-col sm:flex-row gap-2">
+                      <button className="w-full sm:w-auto rounded-xl bg-black text-white px-4 py-2 text-sm font-semibold hover:bg-black/90 transition">
                         Tickets
                       </button>
-                      <button className="rounded-xl border border-black/15 px-4 py-2 text-sm font-semibold hover:bg-black/5 transition">
+                      <button className="w-full sm:w-auto rounded-xl border border-black/15 px-4 py-2 text-sm font-semibold hover:bg-black/5 transition">
                         Details
                       </button>
                     </div>
@@ -116,7 +141,10 @@ export default function HomeHighlights() {
 
               <div className="pt-2 text-sm text-black/60">
                 Want your event featured?{" "}
-                <a className="font-semibold underline underline-offset-4" href="/bookings">
+                <a
+                  className="font-semibold underline underline-offset-4"
+                  href="/bookings"
+                >
                   Book a slot
                 </a>
                 .
@@ -130,7 +158,7 @@ export default function HomeHighlights() {
             Next up: releases grid, featured artist, merch highlights.
           </div>
         </div>
-      </div>
+      </PageContainer>
     </section>
   );
 }

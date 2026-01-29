@@ -13,7 +13,7 @@ type SongRow = {
   title: string;
   artist: string;
   release_date: string | null; // date
-  price_cents: number; // store cents (we'll input rands and convert)
+  price_cents: number; // store cents
   cover_url: string | null;
   audio_url: string | null;
 
@@ -33,7 +33,6 @@ type AlbumRow = {
   created_at: string;
 };
 
-// ✅ FIXED: match your actual shows table fields used in the code
 type ShowRow = {
   id: string;
   title: string;
@@ -74,6 +73,26 @@ const formatZar = (cents: number) =>
     maximumFractionDigits: 0,
   }).format(Math.round((cents || 0) / 100));
 
+/** Safer UUID for older devices/browsers */
+const uuid = () => {
+  try {
+    // modern browsers
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const c: any = globalThis.crypto;
+    if (c?.randomUUID) return c.randomUUID();
+  } catch {
+    // ignore
+  }
+  // fallback
+  return `id_${Math.random().toString(16).slice(2)}_${Date.now().toString(16)}`;
+};
+
+const toCents = (zar: string) => {
+  const n = Number.parseFloat((zar || "0").toString());
+  if (!Number.isFinite(n) || n < 0) return 0;
+  return Math.round(n * 100);
+};
+
 export default function Admin() {
   const { user, loading: authLoading } = useAuth();
 
@@ -111,9 +130,7 @@ export default function Admin() {
     const load = async () => {
       const { data } = await supabase
         .from("songs")
-        .select(
-          "id,title,artist,release_date,price_cents,cover_url,audio_url,album_id,track_number,created_at"
-        )
+        .select("id,title,artist,release_date,price_cents,cover_url,audio_url,album_id,track_number,created_at")
         .order("created_at", { ascending: false });
 
       setSongsForLyrics((data as SongRow[]) ?? []);
@@ -165,9 +182,7 @@ export default function Admin() {
               <div>
                 <h1 className="text-4xl md:text-5xl font-black tracking-tight">
                   Admin{" "}
-                  <span className="text-teal-300 drop-shadow-[0_0_18px_rgba(20,184,166,0.35)]">
-                    Panel
-                  </span>
+                  <span className="text-teal-300 drop-shadow-[0_0_18px_rgba(20,184,166,0.35)]">Panel</span>
                 </h1>
                 <p className="mt-2 text-white/70">Add / edit / delete songs, shows, merch and lyrics.</p>
               </div>
@@ -303,7 +318,7 @@ function Field({
 }) {
   return (
     <div>
-      <label className="block text-xs text-white/60 mb-2">{label}</label>
+      {label ? <label className="block text-xs text-white/60 mb-2">{label}</label> : null}
       <input
         value={value}
         onChange={(e) => onChange(e.target.value)}
@@ -315,7 +330,7 @@ function Field({
   );
 }
 
-/* ------------------ SONGS CRUD (UPDATED) ------------------ */
+/* ------------------ SONGS CRUD (FIXED + COMPLETE UI) ------------------ */
 
 type ReleaseType = "single" | "album";
 
@@ -343,9 +358,11 @@ function SongsPanel({ onSongsChanged }: { onSongsChanged: () => Promise<void> })
   const [releaseDate, setReleaseDate] = useState("");
   const [priceZar, setPriceZar] = useState("0");
 
+  // optional manual URLs
   const [coverUrl, setCoverUrl] = useState("");
   const [audioUrl, setAudioUrl] = useState("");
 
+  // upload files
   const [coverFile, setCoverFile] = useState<File | null>(null);
   const [audioFile, setAudioFile] = useState<File | null>(null);
 
@@ -357,7 +374,7 @@ function SongsPanel({ onSongsChanged }: { onSongsChanged: () => Promise<void> })
 
   const [bulkTrackPrice, setBulkTrackPrice] = useState("0");
   const [tracks, setTracks] = useState<TrackDraft[]>([
-    { id: crypto.randomUUID(), title: "", priceZar: "0", audioFile: null },
+    { id: uuid(), title: "", priceZar: "0", audioFile: null },
   ]);
 
   const resetSingleForm = () => {
@@ -378,7 +395,7 @@ function SongsPanel({ onSongsChanged }: { onSongsChanged: () => Promise<void> })
     setAlbumReleaseDate("");
     setAlbumCoverFile(null);
     setBulkTrackPrice("0");
-    setTracks([{ id: crypto.randomUUID(), title: "", priceZar: "0", audioFile: null }]);
+    setTracks([{ id: uuid(), title: "", priceZar: "0", audioFile: null }]);
   };
 
   const resetAll = () => {
@@ -428,7 +445,7 @@ function SongsPanel({ onSongsChanged }: { onSongsChanged: () => Promise<void> })
     setTitle(row.title);
     setArtist(row.artist);
     setReleaseDate(row.release_date ?? "");
-    setPriceZar(String(Math.round(row.price_cents / 100)));
+    setPriceZar(String(Math.round((row.price_cents ?? 0) / 100)));
     setCoverUrl(row.cover_url ?? "");
     setAudioUrl(row.audio_url ?? "");
     setCoverFile(null);
@@ -459,11 +476,12 @@ function SongsPanel({ onSongsChanged }: { onSongsChanged: () => Promise<void> })
 
     const ext = file.name.split(".").pop() || "bin";
     const safeExt = ext.toLowerCase();
-    const path = `${crypto.randomUUID()}.${safeExt}`;
+    const path = `${bucket}/${uuid()}.${safeExt}`;
 
     const { data, error } = await supabase.storage.from(bucket).upload(path, file, {
       upsert: false,
       contentType: file.type || undefined,
+      cacheControl: "3600",
     });
 
     if (error) throw new Error(error.message ?? "Storage upload failed");
@@ -473,7 +491,7 @@ function SongsPanel({ onSongsChanged }: { onSongsChanged: () => Promise<void> })
   };
 
   const addTrack = () => {
-    setTracks((t) => [...t, { id: crypto.randomUUID(), title: "", priceZar: "0", audioFile: null }]);
+    setTracks((t) => [...t, { id: uuid(), title: "", priceZar: bulkTrackPrice || "0", audioFile: null }]);
   };
 
   const removeTrack = (id: string) => {
@@ -486,19 +504,12 @@ function SongsPanel({ onSongsChanged }: { onSongsChanged: () => Promise<void> })
 
   const applyBulkPrice = () => {
     setTracks((t) => t.map((x) => ({ ...x, priceZar: bulkTrackPrice || "0" })));
-
-    // prevent TS noUnusedLocals errors if the album UI is temporarily removed
-void addTrack;
-void removeTrack;
-void updateTrack;
-void applyBulkPrice;
-
   };
 
   const saveSingle = async () => {
-    const priceCents = Math.max(0, Number(priceZar || "0")) * 100;
-
     if (!title.trim()) throw new Error("Title is required.");
+
+    const priceCents = toCents(priceZar);
 
     let nextCoverUrl = coverUrl.trim() || null;
     let nextAudioUrl = audioUrl.trim() || null;
@@ -535,7 +546,7 @@ void applyBulkPrice;
       ...t,
       title: t.title.trim(),
       track_number: idx + 1,
-      price_cents: Math.max(0, Number(t.priceZar || "0")) * 100,
+      price_cents: toCents(t.priceZar),
     }));
 
     if (cleanTracks.some((t) => !t.title)) throw new Error("Every track needs a title.");
@@ -598,7 +609,7 @@ void applyBulkPrice;
     }
   };
 
-  return (
+    return (
     <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
       <div className="lg:col-span-7">
         <Card title="Songs" subtitle="Singles + album tracks. Albums are grouped using album_id.">
@@ -629,6 +640,12 @@ void applyBulkPrice;
                       {s.album_id ? ` • Album: ${albumTitleById.get(s.album_id) ?? "Unknown"}` : " • Single"}
                       {s.release_date ? ` • ${s.release_date}` : ""} • {formatZar(s.price_cents)}
                     </div>
+                    {(s.cover_url || s.audio_url) && (
+                      <div className="mt-2 text-xs text-white/45 space-y-1">
+                        {s.cover_url ? <div className="truncate">Cover: {s.cover_url}</div> : null}
+                        {s.audio_url ? <div className="truncate">Audio: {s.audio_url}</div> : null}
+                      </div>
+                    )}
                   </div>
 
                   <div className="flex gap-2 shrink-0">
@@ -649,16 +666,220 @@ void applyBulkPrice;
           title={releaseType === "album" ? "Create Album" : editingId ? "Edit Song" : "Add Song"}
           subtitle="Uploads to Supabase Storage and writes rows to your DB (admin-only)."
         >
-          {/* UI form portion unchanged from your original (still valid) */}
-          {/* Keep your existing form JSX here exactly as you had it. */}
-          <div className="text-white/60">
-            Keep the rest of your form JSX here (unchanged). Only types/logic above were adjusted.
-          </div>
+          <div className="space-y-5">
+            {/* Release type toggle */}
+            <div className="flex gap-2">
+              <SmallButton
+                variant={releaseType === "single" ? "solid" : "ghost"}
+                onClick={() => {
+                  setReleaseType("single");
+                  setError(null);
+                }}
+                disabled={saving}
+              >
+                Single
+              </SmallButton>
+              <SmallButton
+                variant={releaseType === "album" ? "solid" : "ghost"}
+                onClick={() => {
+                  setReleaseType("album");
+                  setEditingId(null);
+                  setError(null);
+                }}
+                disabled={saving}
+              >
+                Album
+              </SmallButton>
+            </div>
 
-          <div className="mt-4 flex justify-end">
-            <SmallButton variant="solid" onClick={onSave} disabled={saving}>
-              {saving ? "Saving…" : releaseType === "album" ? "Create album + upload tracks" : editingId ? "Save changes" : "Add song"}
-            </SmallButton>
+            {/* SINGLE FORM */}
+            {releaseType === "single" && (
+              <div className="space-y-4">
+                <Field label="Title" value={title} onChange={setTitle} placeholder="Neon Streets" />
+                <Field label="Artist" value={artist} onChange={setArtist} placeholder="Bliximstraat" />
+                <Field label="Release date" value={releaseDate} onChange={setReleaseDate} type="date" />
+                <Field label="Price (ZAR)" value={priceZar} onChange={setPriceZar} type="number" />
+
+                <div className="rounded-2xl border border-white/10 bg-black/25 p-4 space-y-3">
+                  <div className="text-sm font-semibold text-white/80">Cover</div>
+
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={(e) => setCoverFile(e.target.files?.[0] ?? null)}
+                    className="block w-full text-sm text-white/70 file:mr-3 file:rounded-lg file:border file:border-white/15 file:bg-black/30 file:px-3 file:py-1.5 file:text-white/80 hover:file:bg-black/40"
+                  />
+
+                  <div className="text-xs text-white/50">Or paste a cover URL (optional)</div>
+                  <Field label="" value={coverUrl} onChange={setCoverUrl} placeholder="https://..." />
+                </div>
+
+                <div className="rounded-2xl border border-white/10 bg-black/25 p-4 space-y-3">
+                  <div className="text-sm font-semibold text-white/80">Audio</div>
+
+                  <input
+                    type="file"
+                    accept="audio/*"
+                    onChange={(e) => setAudioFile(e.target.files?.[0] ?? null)}
+                    className="block w-full text-sm text-white/70 file:mr-3 file:rounded-lg file:border file:border-white/15 file:bg-black/30 file:px-3 file:py-1.5 file:text-white/80 hover:file:bg-black/40"
+                  />
+
+                  <div className="text-xs text-white/50">Or paste an audio URL (optional)</div>
+                  <Field label="" value={audioUrl} onChange={setAudioUrl} placeholder="https://..." />
+                </div>
+
+                <div className="flex items-center justify-between pt-1">
+                  {editingId ? (
+                    <div className="text-xs text-white/55">Editing song: {editingId}</div>
+                  ) : (
+                    <div className="text-xs text-white/55">Creating a new single</div>
+                  )}
+
+                  <div className="flex gap-2">
+                    {editingId && (
+                      <SmallButton
+                        onClick={() => {
+                          resetSingleForm();
+                          setError(null);
+                        }}
+                        disabled={saving}
+                      >
+                        Cancel edit
+                      </SmallButton>
+                    )}
+
+                    <SmallButton variant="solid" onClick={onSave} disabled={saving}>
+                      {saving ? "Saving…" : editingId ? "Save changes" : "Add song"}
+                    </SmallButton>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* ALBUM FORM */}
+            {releaseType === "album" && (
+              <div className="space-y-4">
+                <Field label="Album title" value={albumTitle} onChange={setAlbumTitle} placeholder="Signals & Static" />
+                <Field label="Album artist" value={albumArtist} onChange={setAlbumArtist} placeholder="Bliximstraat" />
+                <Field
+                  label="Album release date"
+                  value={albumReleaseDate}
+                  onChange={setAlbumReleaseDate}
+                  type="date"
+                />
+
+                <div className="rounded-2xl border border-white/10 bg-black/25 p-4 space-y-3">
+                  <div className="text-sm font-semibold text-white/80">Album cover (required)</div>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={(e) => setAlbumCoverFile(e.target.files?.[0] ?? null)}
+                    className="block w-full text-sm text-white/70 file:mr-3 file:rounded-lg file:border file:border-white/15 file:bg-black/30 file:px-3 file:py-1.5 file:text-white/80 hover:file:bg-black/40"
+                  />
+                  <div className="text-xs text-white/50">
+                    This cover is stored on the album record. Tracks don’t need their own covers.
+                  </div>
+                </div>
+
+                <div className="rounded-2xl border border-white/10 bg-black/25 p-4 space-y-3">
+                  <div className="flex items-end justify-between gap-3">
+                    <div>
+                      <div className="text-sm font-semibold text-white/80">Tracks (required)</div>
+                      <div className="text-xs text-white/55">Each track needs a title + audio file.</div>
+                    </div>
+
+                    <div className="flex gap-2">
+                      <SmallButton onClick={addTrack} disabled={saving}>
+                        + Track
+                      </SmallButton>
+                    </div>
+                  </div>
+
+                  <div className="flex gap-2 items-end">
+                    <div className="flex-1">
+                      <Field
+                        label="Bulk price (ZAR)"
+                        value={bulkTrackPrice}
+                        onChange={setBulkTrackPrice}
+                        type="number"
+                        placeholder="0"
+                      />
+                    </div>
+                    <SmallButton onClick={applyBulkPrice} disabled={saving}>
+                      Apply
+                    </SmallButton>
+                  </div>
+
+                  <div className="space-y-3">
+                    {tracks.map((t, idx) => (
+                      <div key={t.id} className="rounded-2xl border border-white/10 bg-black/30 p-4 space-y-3">
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="text-sm font-semibold text-white/85">Track {idx + 1}</div>
+                          <SmallButton variant="danger" onClick={() => removeTrack(t.id)} disabled={saving || tracks.length <= 1}>
+                            Remove
+                          </SmallButton>
+                        </div>
+
+                        <Field
+                          label="Track title"
+                          value={t.title}
+                          onChange={(v) => updateTrack(t.id, { title: v })}
+                          placeholder="Track name"
+                        />
+
+                        <Field
+                          label="Track price (ZAR)"
+                          value={t.priceZar}
+                          onChange={(v) => updateTrack(t.id, { priceZar: v })}
+                          type="number"
+                        />
+
+                        <div>
+                          <label className="block text-xs text-white/60 mb-2">Track audio file</label>
+                          <input
+                            type="file"
+                            accept="audio/*"
+                            onChange={(e) => updateTrack(t.id, { audioFile: e.target.files?.[0] ?? null })}
+                            className="block w-full text-sm text-white/70 file:mr-3 file:rounded-lg file:border file:border-white/15 file:bg-black/30 file:px-3 file:py-1.5 file:text-white/80 hover:file:bg-black/40"
+                          />
+                          <div className="mt-1 text-xs text-white/45">
+                            {t.audioFile ? `Selected: ${t.audioFile.name}` : "No file selected"}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between pt-1">
+                  <SmallButton
+                    onClick={() => {
+                      resetAlbumForm();
+                      setError(null);
+                    }}
+                    disabled={saving}
+                  >
+                    Reset album form
+                  </SmallButton>
+
+                  <SmallButton variant="solid" onClick={onSave} disabled={saving}>
+                    {saving ? "Saving…" : "Create album + upload tracks"}
+                  </SmallButton>
+                </div>
+              </div>
+            )}
+
+            <div className="pt-2">
+              <SmallButton
+                onClick={() => {
+                  resetAll();
+                  setError(null);
+                }}
+                disabled={saving}
+              >
+                Reset everything
+              </SmallButton>
+            </div>
           </div>
         </Card>
       </div>
@@ -835,9 +1056,7 @@ function ShowsPanel() {
                       {s.show_date ? ` • ${formatForList(s.show_date, s.show_time)}` : ""}
                       {s.is_past ? " • Past" : ""}
                     </div>
-                    {s.ticket_url && (
-                      <div className="mt-2 text-xs text-white/50 truncate">Tickets: {s.ticket_url}</div>
-                    )}
+                    {s.ticket_url && <div className="mt-2 text-xs text-white/50 truncate">Tickets: {s.ticket_url}</div>}
                   </div>
 
                   <div className="flex gap-2 shrink-0">
@@ -882,8 +1101,6 @@ function ShowsPanel() {
   );
 }
 
-
-
 /* ------------------ MERCH CRUD ------------------ */
 
 function MerchPanel() {
@@ -901,7 +1118,6 @@ function MerchPanel() {
   const [note, setNote] = useState("");
   const [isPreorder, setIsPreorder] = useState(false);
 
-  // NEW: file upload state
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string>("");
   const [uploadingImage, setUploadingImage] = useState(false);
@@ -913,22 +1129,19 @@ function MerchPanel() {
   };
 
   const uploadMerchImage = async (file: File) => {
-    // basic guard rails so your bucket doesn't become a 4K wallpaper dump
-    const MAX = 6 * 1024 * 1024; // 6MB
+    const MAX = 6 * 1024 * 1024;
     if (file.size > MAX) throw new Error("Image is too large (max 6MB).");
 
     const ext = safeExt(file.name);
-    const path = `products/${crypto.randomUUID()}.${ext}`;
+    const path = `products/${uuid()}.${ext}`;
 
     setUploadingImage(true);
     try {
-      const { error: uploadError } = await supabase.storage
-        .from("merch") // <-- bucket name
-        .upload(path, file, {
-          cacheControl: "3600",
-          upsert: false,
-          contentType: file.type,
-        });
+      const { error: uploadError } = await supabase.storage.from("merch").upload(path, file, {
+        cacheControl: "3600",
+        upsert: false,
+        contentType: file.type,
+      });
 
       if (uploadError) throw uploadError;
 
@@ -950,7 +1163,6 @@ function MerchPanel() {
     setNote("");
     setIsPreorder(false);
 
-    // NEW
     setImageFile(null);
     if (imagePreview) URL.revokeObjectURL(imagePreview);
     setImagePreview("");
@@ -970,7 +1182,6 @@ function MerchPanel() {
 
   useEffect(() => {
     load();
-    // cleanup preview url on unmount
     return () => {
       if (imagePreview) URL.revokeObjectURL(imagePreview);
     };
@@ -980,7 +1191,6 @@ function MerchPanel() {
   const onPickImage = (file: File | null) => {
     setError(null);
 
-    // clear previous preview
     if (imagePreview) URL.revokeObjectURL(imagePreview);
 
     setImageFile(file);
@@ -992,14 +1202,10 @@ function MerchPanel() {
 
     const preview = URL.createObjectURL(file);
     setImagePreview(preview);
-
-    // If they pick a file, we can optionally clear URL to avoid confusion
-    // Comment this out if you want both to coexist.
     setImageUrl("");
   };
 
   const onEdit = (row: ProductRow) => {
-    // clear previous preview
     if (imagePreview) URL.revokeObjectURL(imagePreview);
 
     setEditingId(row.id);
@@ -1011,7 +1217,6 @@ function MerchPanel() {
     setIsPreorder(row.is_preorder);
     setError(null);
 
-    // NEW: reset local file state on edit
     setImageFile(null);
     setImagePreview("");
   };
@@ -1034,10 +1239,6 @@ function MerchPanel() {
         throw new Error("Name and category are required.");
       }
 
-      // Determine final image URL:
-      // 1) Use pasted URL if present
-      // 2) Else upload selected file (if any)
-      // 3) Else null
       let finalImageUrl = imageUrl.trim();
 
       if (!finalImageUrl && imageFile) {
@@ -1047,7 +1248,7 @@ function MerchPanel() {
       const payload = {
         name: name.trim(),
         category: category.trim(),
-        price_cents: Math.max(0, Number(priceZar || "0")) * 100,
+        price_cents: toCents(priceZar),
         image_url: finalImageUrl || null,
         note: note.trim() || null,
         is_preorder: isPreorder,
@@ -1127,7 +1328,6 @@ function MerchPanel() {
             <Field label="Category" value={category} onChange={setCategory} placeholder="T-Shirts" />
             <Field label="Price (ZAR)" value={priceZar} onChange={setPriceZar} type="number" />
 
-            {/* REPLACED: Image URL field -> Upload + optional URL */}
             <div className="space-y-2">
               <div className="text-sm text-white/75">Product image</div>
 
@@ -1140,26 +1340,16 @@ function MerchPanel() {
 
               {imagePreview && (
                 <div className="rounded-2xl border border-white/10 bg-black/20 p-2">
-                  <img
-                    src={imagePreview}
-                    alt="Preview"
-                    className="h-40 w-full rounded-xl object-cover"
-                  />
+                  <img src={imagePreview} alt="Preview" className="h-40 w-full rounded-xl object-cover" />
                   <div className="mt-2 flex justify-end">
-                    <SmallButton
-                      onClick={() => onPickImage(null)}
-                      variant="danger"
-                    >
+                    <SmallButton onClick={() => onPickImage(null)} variant="danger">
                       Remove image
                     </SmallButton>
                   </div>
                 </div>
               )}
 
-              <div className="text-xs text-white/50">
-                Or paste an Image URL (optional)
-              </div>
-
+              <div className="text-xs text-white/50">Or paste an Image URL (optional)</div>
               <Field label="" value={imageUrl} onChange={setImageUrl} placeholder="https://..." />
             </div>
 
@@ -1167,16 +1357,16 @@ function MerchPanel() {
 
             <div className="flex items-center justify-between pt-1">
               <label className="flex items-center gap-2 text-sm text-white/75">
-                <input
-                  type="checkbox"
-                  checked={isPreorder}
-                  onChange={(e) => setIsPreorder(e.target.checked)}
-                />
+                <input type="checkbox" checked={isPreorder} onChange={(e) => setIsPreorder(e.target.checked)} />
                 Preorder
               </label>
 
               <div className="flex gap-2">
-                {editingId && <SmallButton onClick={resetForm} disabled={saveDisabled}>Cancel</SmallButton>}
+                {editingId && (
+                  <SmallButton onClick={resetForm} disabled={saveDisabled}>
+                    Cancel
+                  </SmallButton>
+                )}
                 <SmallButton variant="solid" onClick={onSave} disabled={saveDisabled}>
                   {uploadingImage
                     ? "Uploading…"
@@ -1194,7 +1384,6 @@ function MerchPanel() {
     </div>
   );
 }
-
 
 /* ------------------ LYRICS CRUD ------------------ */
 
@@ -1321,9 +1510,7 @@ function LyricsPanel({ songs }: { songs: SongRow[] }) {
                       {l.year ? `${l.year} • ` : ""}
                       {l.song_id ? `Linked: ${songTitleById.get(l.song_id) ?? "Song"}` : "Unlinked"}
                     </div>
-                    <div className="mt-2 text-xs text-white/50 line-clamp-2 whitespace-pre-wrap">
-                      {l.lyrics}
-                    </div>
+                    <div className="mt-2 text-xs text-white/50 line-clamp-2 whitespace-pre-wrap">{l.lyrics}</div>
                   </div>
 
                   <div className="flex gap-2 shrink-0">

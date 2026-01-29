@@ -8,11 +8,18 @@ import { useCart } from "../contexts/CartContext";
 import songOwnedBadge from "../assets/song-owned.png";
 import albumOwnedBadge from "../assets/album-owned.png";
 
+/**
+ * 🧪 TESTING:
+ * When true, we IGNORE purchases and act like nothing is owned after reload.
+ * Set to false when you're done testing.
+ */
+const TEST_RESET_OWNERSHIP_EACH_RELOAD = true;
+
 type SongRow = {
   id: string;
   title: string;
   artist: string;
-  release_date: string | null; // date (YYYY-MM-DD)
+  release_date: string | null;
   price_cents: number;
   cover_url: string | null;
   audio_url: string | null;
@@ -41,9 +48,6 @@ type AlbumCard = {
 
   /** Sum of all track prices, then 15% discount applied */
   albumPriceCents: number;
-
-  /** For backwards compatibility (not used anymore for album purchase) */
-  fromPriceCents: number;
 
   tracks: Array<{
     id: string;
@@ -87,42 +91,30 @@ export default function Music() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // ✅ Ownership (fetch once per user session)
   const [userId, setUserId] = useState<string | null>(null);
   const [ownedSongIds, setOwnedSongIds] = useState<Set<string>>(new Set());
   const [loadingOwned, setLoadingOwned] = useState(false);
 
-  // ✅ Global cart (badge + modal)
   const { addItem, count } = useCart();
 
-  // Audio player shared for demos
   const audioRef = useRef<HTMLAudioElement | null>(null);
-
-  // Timers for demo playback
   const demoStopTimerRef = useRef<number | null>(null);
   const demoSeekTimerRef = useRef<number | null>(null);
 
-  // Singles demo state
   const [nowPlayingSingleId, setNowPlayingSingleId] = useState<string | null>(null);
   const playedSinglesThisSessionRef = useRef<Set<string>>(new Set());
   const SINGLE_DEMO_SECONDS = 15;
 
-  // Album demo state (used on album cards grid)
   const [nowPlayingAlbumId, setNowPlayingAlbumId] = useState<string | null>(null);
   const [lockedAlbumId, setLockedAlbumId] = useState<string | null>(null);
   const ALBUM_DEMO_TOTAL_SECONDS = 30;
 
-  // Track demo state INSIDE album modal
   const [nowPlayingTrackId, setNowPlayingTrackId] = useState<string | null>(null);
-  const playedAlbumTracksThisSessionRef = useRef<Set<string>>(new Set()); // once-per-reload gate
+  const playedAlbumTracksThisSessionRef = useRef<Set<string>>(new Set());
 
-  // Album modal purchase gate (per track)
   const [lockedAlbumTrackId, setLockedAlbumTrackId] = useState<string | null>(null);
-
-  // Single purchase gate overlay per card
   const [lockedSongId, setLockedSongId] = useState<string | null>(null);
 
-  // Album modal
   const [openAlbumId, setOpenAlbumId] = useState<string | null>(null);
 
   const [toast, setToast] = useState<string | null>(null);
@@ -131,10 +123,31 @@ export default function Music() {
     setToast(msg);
     window.setTimeout(() => setToast(null), 2000);
   };
+  const clearAllTimers = () => {
+    if (demoStopTimerRef.current) window.clearTimeout(demoStopTimerRef.current);
+    if (demoSeekTimerRef.current) window.clearTimeout(demoSeekTimerRef.current);
+    demoStopTimerRef.current = null;
+    demoSeekTimerRef.current = null;
+  };
+
+  const stopAllAudio = () => {
+    clearAllTimers();
+    const audio = audioRef.current;
+    if (audio) {
+      audio.pause();
+      try {
+        audio.currentTime = 0;
+      } catch {
+        // ignore
+      }
+    }
+    setNowPlayingSingleId(null);
+    setNowPlayingAlbumId(null);
+    setNowPlayingTrackId(null);
+  };
 
   // -----------------------------
-  // Load music + initialize audio
-  // + capture auth user id
+  // Load music + init audio + auth
   // -----------------------------
   useEffect(() => {
     const load = async () => {
@@ -213,6 +226,12 @@ export default function Music() {
     let cancelled = false;
 
     const loadOwned = async () => {
+      // 🧪 TEST MODE: pretend nothing is owned on reload
+      if (TEST_RESET_OWNERSHIP_EACH_RELOAD) {
+        setOwnedSongIds(new Set());
+        return;
+      }
+
       if (!userId) {
         setOwnedSongIds(new Set());
         return;
@@ -245,30 +264,6 @@ export default function Music() {
       cancelled = true;
     };
   }, [userId]);
-
-  const clearAllTimers = () => {
-    if (demoStopTimerRef.current) window.clearTimeout(demoStopTimerRef.current);
-    if (demoSeekTimerRef.current) window.clearTimeout(demoSeekTimerRef.current);
-    demoStopTimerRef.current = null;
-    demoSeekTimerRef.current = null;
-  };
-
-  const stopAllAudio = () => {
-    clearAllTimers();
-    const audio = audioRef.current;
-    if (audio) {
-      audio.pause();
-      try {
-        audio.currentTime = 0;
-      } catch {
-        // ignore
-      }
-    }
-    setNowPlayingSingleId(null);
-    setNowPlayingAlbumId(null);
-    setNowPlayingTrackId(null);
-  };
-
   const singles: SingleCard[] = useMemo(() => {
     const fallbackCover = (seed: string) => `https://picsum.photos/seed/${encodeURIComponent(seed)}/900/900`;
 
@@ -315,8 +310,6 @@ export default function Music() {
           releaseDate: t.release_date ?? null,
         }));
 
-      const fromPrice = tracks.length > 0 ? Math.min(...tracks.map((t) => t.priceCents || 0)) : 0;
-
       const sumTracksCents = tracks.reduce((acc, t) => acc + (t.priceCents || 0), 0);
       const discountedAlbumCents = Math.round(sumTracksCents * 0.85);
 
@@ -327,7 +320,6 @@ export default function Music() {
         year,
         coverUrl: a.cover_url || fallbackCover(a.title),
         releaseDate: a.release_date ?? null,
-        fromPriceCents: fromPrice,
         albumPriceCents: discountedAlbumCents,
         tracks,
       };
@@ -346,25 +338,17 @@ export default function Music() {
   const albumOwnedIds = useMemo(() => {
     const set = new Set<string>();
     for (const a of albumCards) {
-      if (a.tracks.length > 0 && a.tracks.every((t) => ownedSongIds.has(t.id))) {
-        set.add(a.id);
-      }
+      if (a.tracks.length > 0 && a.tracks.every((t) => ownedSongIds.has(t.id))) set.add(a.id);
     }
     return set;
   }, [albumCards, ownedSongIds]);
 
-  // ✅ DB-backed cart add (async, user-scoped)
-  const addToCart = async (
-    id: string,
-    title: string,
-    artist: string,
-    priceCents: number,
-    coverUrl: string | null
-  ) => {
+  // ✅ Song-only cart add (DB-backed)
+  const addToCart = async (id: string, title: string, artist: string, priceCents: number, coverUrl: string | null) => {
     try {
       await addItem(
         {
-          id, // song id (must exist in public.songs)
+          id,
           title,
           artist,
           price: (priceCents || 0) / 100,
@@ -378,21 +362,68 @@ export default function Music() {
     }
   };
 
-  const addAlbumTracksToCart = async (album: AlbumCard) => {
+  /**
+   * ✅ Buy album (works even if cart supports only songs):
+   * - Adds NON-OWNED tracks to cart
+   * - Applies the 15% album discount by distributing discounted cents across tracks
+   *   so the total matches albumPriceCents exactly.
+   */
+  const buyAlbum = async (album: AlbumCard) => {
+    if (!album.tracks.length) {
+      showToast("No tracks in this album yet.");
+      return;
+    }
+
+    // If already owned, do nothing.
+    if (albumOwnedIds.has(album.id)) return;
+
+    // Only include tracks not owned (owned tracks shouldn't show "buy" options anyway)
+    const buyable = album.tracks.filter((t) => !ownedSongIds.has(t.id));
+    if (buyable.length === 0) {
+      showToast("You already own all tracks in this album.");
+      return;
+    }
+
+    // Compute original sum for buyable tracks
+    const sumBuyable = buyable.reduce((acc, t) => acc + (t.priceCents || 0), 0);
+    if (sumBuyable <= 0) {
+      showToast("Album tracks have no pricing set.");
+      return;
+    }
+
+    // Discounted total for buyable tracks:
+    // If some tracks are already owned, we discount only the remaining ones.
+    const discountedTotal = Math.round(sumBuyable * 0.85);
+
+    // Distribute discountedTotal across tracks proportionally and fix rounding.
+    const allocations = buyable.map((t) => ({
+      track: t,
+      cents: Math.floor(((t.priceCents || 0) / sumBuyable) * discountedTotal),
+    }));
+
+    let allocated = allocations.reduce((acc, a) => acc + a.cents, 0);
+    let remainder = discountedTotal - allocated;
+
+    // Add remaining cents to the first tracks to match exact total
+    for (let i = 0; i < allocations.length && remainder > 0; i++) {
+      allocations[i].cents += 1;
+      remainder -= 1;
+    }
+
     try {
-      for (const t of album.tracks) {
+      for (const a of allocations) {
         await addItem(
           {
-            id: t.id,
-            title: t.title,
+            id: a.track.id,
+            title: a.track.title,
             artist: album.artist,
-            price: (t.priceCents || 0) / 100,
+            price: (a.cents || 0) / 100, // discounted per-track price
             coverUrl: album.coverUrl ?? undefined,
           },
           1
         );
       }
-      showToast(`Added ${album.tracks.length} track${album.tracks.length === 1 ? "" : "s"} to cart.`);
+      showToast(`Album added to cart (discount applied).`);
     } catch (err: any) {
       showToast(err?.message || "Please sign in to add items to cart.");
     }
@@ -420,10 +451,7 @@ export default function Music() {
     const audio = audioRef.current ?? new Audio();
     audioRef.current = audio;
 
-    audio.onended = () => {
-      stopAllAudio();
-    };
-
+    audio.onended = () => stopAllAudio();
     audio.onerror = () => {
       showToast("Audio failed to load. Check bucket access / URL.");
       stopAllAudio();
@@ -450,7 +478,6 @@ export default function Music() {
   };
 
   const playSingleDemo = async (r: SingleCard) => {
-    // ✅ If owned, play full immediately
     if (ownedSongIds.has(r.id)) {
       await playOwnedSingle(r);
       return;
@@ -503,9 +530,7 @@ export default function Music() {
           const start = (Date.now() / 1000) % maxStart;
           try {
             audio.currentTime = start;
-          } catch {
-            // ignore
-          }
+          } catch {}
         }
       }, 250);
 
@@ -598,9 +623,7 @@ export default function Music() {
             const start = Math.min(Math.max(0, (Date.now() / 1000) % (dur - 10)), dur - 10);
             try {
               audio.currentTime = start;
-            } catch {
-              // ignore
-            }
+            } catch {}
           }
         }, 200);
 
@@ -655,9 +678,7 @@ export default function Music() {
     const audio = audioRef.current ?? new Audio();
     audioRef.current = audio;
 
-    audio.onended = () => {
-      showPurchaseGateForAlbumTrack(track.id);
-    };
+    audio.onended = () => showPurchaseGateForAlbumTrack(track.id);
     audio.onerror = () => {
       showToast("Audio failed to load. Check bucket access / URL.");
       stopAllAudio();
@@ -678,9 +699,7 @@ export default function Music() {
           const start = (Date.now() / 1000) % maxStart;
           try {
             audio.currentTime = start;
-          } catch {
-            // ignore
-          }
+          } catch {}
         }
       }, 200);
 
@@ -694,12 +713,12 @@ export default function Music() {
     }
   };
 
-  // Album modal helpers
   const openAlbum = (id: string) => {
     setOpenAlbumId(id);
     setLockedAlbumId(null);
     setLockedAlbumTrackId(null);
   };
+
   const closeAlbum = () => {
     setOpenAlbumId(null);
     setLockedAlbumTrackId(null);
@@ -719,7 +738,6 @@ export default function Music() {
     "rounded-xl border border-white/20 bg-white px-4 py-2 text-sm font-semibold text-black hover:bg-white/90";
   const modalWhiteBtnSm =
     "rounded-xl border border-white/20 bg-white px-3 py-2 text-xs font-semibold text-black hover:bg-white/90";
-
   return (
     <div className="relative min-h-screen flex flex-col">
       {/* BACKGROUND LAYER (video + overlay) */}
@@ -735,16 +753,25 @@ export default function Music() {
         <Navbar overlayOnHome={false} />
 
         <main className="flex-1">
-          <div className="mx-auto w-full max-w-6xl px-6 py-10">
+          <div className="mx-auto w-full max-w-6xl px-4 sm:px-6 lg:px-8 py-6 sm:py-10">
             {/* HEADER */}
-            <div className="flex items-start justify-between gap-6">
-              <div>
-                <h1 className="text-3xl md:text-4xl font-semibold tracking-tight">Music</h1>
-                <p className="text-white/60 mt-2">Albums and singles. Like it should’ve been from day one.</p>
+            <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 sm:gap-6">
+              <div className="min-w-0">
+                <h1 className="text-2xl sm:text-3xl md:text-4xl font-semibold tracking-tight">Music</h1>
+                <p className="text-white/60 mt-2 text-sm sm:text-base">
+                  Albums and singles. Like it should’ve been from day one.
+                </p>
+
+                {TEST_RESET_OWNERSHIP_EACH_RELOAD && (
+                  <div className="mt-2 text-xs text-yellow-200/80">
+                    Test mode: ownership reset on reload (ignoring purchases)
+                  </div>
+                )}
+
                 {loadingOwned && <div className="mt-2 text-xs text-white/50">Checking owned songs…</div>}
               </div>
 
-              <div className="shrink-0 text-right">
+              <div className="shrink-0 sm:text-right rounded-2xl border border-white/10 bg-black/35 backdrop-blur-sm px-4 py-3">
                 <div className="text-xs text-white/60">Cart</div>
                 <div className="text-sm font-semibold">
                   {count} item{count === 1 ? "" : "s"}
@@ -759,16 +786,18 @@ export default function Music() {
             )}
 
             {/* TABS */}
-            <div className="mt-8 border-b border-white/10 flex gap-6 text-sm">
-              <a href="#albums" className="py-3 text-white/85 hover:text-white">
-                Albums
-              </a>
-              <a href="#singles" className="py-3 text-white/85 hover:text-white">
-                Singles
-              </a>
-              <a href="#embeds" className="py-3 text-white/85 hover:text-white">
-                Embeds
-              </a>
+            <div className="mt-8 border-b border-white/10">
+              <div className="flex gap-6 text-sm overflow-x-auto whitespace-nowrap pr-2 [-webkit-overflow-scrolling:touch]">
+                <a href="#albums" className="py-3 text-white/85 hover:text-white shrink-0">
+                  Albums
+                </a>
+                <a href="#singles" className="py-3 text-white/85 hover:text-white shrink-0">
+                  Singles
+                </a>
+                <a href="#embeds" className="py-3 text-white/85 hover:text-white shrink-0">
+                  Embeds
+                </a>
+              </div>
             </div>
 
             {error && (
@@ -780,7 +809,7 @@ export default function Music() {
             {/* ALBUMS */}
             <section id="albums" className="mt-10">
               <div className="flex items-end justify-between gap-4">
-                <h2 className="text-xl font-semibold">Albums</h2>
+                <h2 className="text-lg sm:text-xl font-semibold">Albums</h2>
                 <div className="text-sm text-white/60">
                   {loading ? "Loading…" : `${albumCards.length} album${albumCards.length === 1 ? "" : "s"}`}
                 </div>
@@ -792,7 +821,7 @@ export default function Music() {
                 </div>
               )}
 
-              <div className="mt-6 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+              <div className="mt-6 grid gap-4 sm:gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
                 {albumCards.map((a) => {
                   const isAlbumOwned = albumOwnedIds.has(a.id);
 
@@ -801,47 +830,49 @@ export default function Music() {
                       key={a.id}
                       className="rounded-2xl border border-white/10 bg-black/40 backdrop-blur-sm overflow-hidden"
                     >
-                      <div className="group relative w-full aspect-square max-w-[500px] overflow-hidden">
+                      <div className="group relative w-full aspect-square overflow-hidden">
                         <img
                           src={a.coverUrl}
                           alt={`${a.title} cover`}
-                          className="h-full w-full object-cover transition duration-300 group-hover:scale-[1.02]"
+                          className="h-full w-full object-cover transition duration-300 md:group-hover:scale-[1.02]"
                           loading="lazy"
                         />
 
-                        {/* ✅ Album owned overlay on COVER */}
+                        {/* ✅ Album owned overlay */}
                         {isAlbumOwned && (
-                          <div className="absolute inset-0 z-20 flex items-center justify-center">
-                            <div className="rounded-2xl bg-black/55 backdrop-blur-md border border-white/10 shadow-lg px-5 py-4">
+                          <div className="absolute inset-0 z-20 flex items-center justify-center p-4">
+                            <div className="rounded-2xl bg-black/55 backdrop-blur-md border border-white/10 shadow-lg px-4 py-3">
                               <img
                                 src={albumOwnedBadge}
                                 alt="Album owned"
-                                className="h-40 sm:h-44 md:h-48 w-auto object-contain select-none opacity-95"
+                                className="h-32 sm:h-40 md:h-48 w-auto object-contain select-none opacity-95"
                               />
                             </div>
                           </div>
                         )}
 
-                        <div className="absolute top-3 left-3 flex gap-2 text-xs z-30">
+                        <div className="absolute top-3 left-3 flex gap-2 text-[11px] sm:text-xs z-30">
                           <span className="px-2 py-1 rounded-full bg-white/10 border border-white/15">Album</span>
                           <span className="px-2 py-1 rounded-full bg-black/40 border border-white/10">{a.year}</span>
                         </div>
 
-                        {/* Hover overlay (under owned badge) */}
-                        <div className="pointer-events-none absolute inset-0 bg-black/60 opacity-0 transition duration-200 group-hover:opacity-100 z-10" />
-                        <div className="absolute inset-x-0 bottom-0 p-4 opacity-0 transition duration-200 group-hover:opacity-100 z-30">
+                        {/* Hover overlay (ONLY on md+). */}
+                        <div className="pointer-events-none absolute inset-0 bg-black/60 opacity-0 transition duration-200 md:group-hover:opacity-100 z-10" />
+
+                        {/* Controls */}
+                        <div className="absolute inset-x-0 bottom-0 p-3 sm:p-4 z-30 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition duration-200">
                           <button
                             type="button"
-                            className="pointer-events-auto w-full rounded-xl border border-white/15 bg-white/10 px-4 py-2 text-sm font-semibold hover:bg-white/15"
+                            className="w-full rounded-xl border border-white/15 bg-white/10 px-4 py-2 text-sm font-semibold hover:bg-white/15"
                             onClick={() => openAlbum(a.id)}
                           >
                             Go to album
                           </button>
 
-                          <div className="mt-2 flex gap-2">
+                          <div className="mt-2 flex flex-col sm:flex-row gap-2">
                             <button
                               type="button"
-                              className="pointer-events-auto flex-1 rounded-xl border border-white/15 bg-white/10 px-4 py-2 text-sm font-semibold hover:bg-white/15"
+                              className="flex-1 rounded-xl border border-white/15 bg-white/10 px-4 py-2 text-sm font-semibold hover:bg-white/15"
                               onClick={(e) => {
                                 e.stopPropagation();
                                 playAlbumDemoMix(a);
@@ -850,17 +881,19 @@ export default function Music() {
                               {nowPlayingAlbumId === a.id ? "Stop demo" : "Play album demo"}
                             </button>
 
-                            <button
-                              type="button"
-                              className="pointer-events-auto flex-1 rounded-xl border border-white/15 bg-white/10 px-4 py-2 text-sm font-semibold hover:bg-white/15"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                void addAlbumTracksToCart(a);
-                              }}
-                              title="Adds all tracks to cart. Album-level discount can be applied at checkout later."
-                            >
-                              Add all tracks
-                            </button>
+                            {!isAlbumOwned && (
+                              <button
+                                type="button"
+                                className="flex-1 rounded-xl border border-white/15 bg-white/10 px-4 py-2 text-sm font-semibold hover:bg-white/15"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  void buyAlbum(a);
+                                }}
+                                title="Adds all tracks with the album discount applied."
+                              >
+                                Buy album
+                              </button>
+                            )}
                           </div>
 
                           <div className="mt-2 text-[11px] text-white/65">
@@ -870,12 +903,12 @@ export default function Music() {
                         </div>
 
                         {lockedAlbumId === a.id && (
-                          <div className="absolute inset-0 z-40 flex items-center justify-center p-5">
+                          <div className="absolute inset-0 z-40 flex items-center justify-center p-4 sm:p-5">
                             <div className="w-full rounded-2xl border border-white/15 bg-black/80 backdrop-blur-sm p-4 text-center">
                               <div className="text-lg font-bold">Keep listening?</div>
                               <div className="mt-2 text-sm text-white/70">Demo ended. Want the full album tracks?</div>
 
-                              <div className="mt-4 flex gap-2">
+                              <div className="mt-4 flex flex-col sm:flex-row gap-2">
                                 <button
                                   type="button"
                                   className="flex-1 rounded-xl border border-white/15 bg-white/10 px-4 py-2 text-sm font-semibold hover:bg-white/15"
@@ -897,19 +930,17 @@ export default function Music() {
                         )}
                       </div>
 
-                      {/* Album info strip (price stays for now) */}
+                      {/* Album info strip */}
                       <div className="p-4">
-                        <div className="text-lg font-semibold leading-tight">{a.title}</div>
+                        <div className="text-base sm:text-lg font-semibold leading-tight">{a.title}</div>
                         <div className="text-sm text-white/60">{a.artist}</div>
 
-                        <div className="mt-3 flex items-center justify-between text-sm">
+                        <div className="mt-3 flex items-center justify-between text-sm gap-3">
                           <div className="font-semibold">{formatZar(a.albumPriceCents)}</div>
                           <div className="text-white/60">{formatReleaseDate(a.releaseDate)}</div>
                         </div>
 
-                        <div className="mt-1 text-[11px] text-white/55">
-                          Album price shown (sum − 15%). Cart currently adds tracks individually.
-                        </div>
+                        <div className="mt-1 text-[11px] text-white/55">Album price shown (sum − 15%).</div>
                       </div>
                     </div>
                   );
@@ -920,7 +951,7 @@ export default function Music() {
             {/* SINGLES */}
             <section id="singles" className="mt-14">
               <div className="flex items-end justify-between gap-4">
-                <h2 className="text-xl font-semibold">Singles</h2>
+                <h2 className="text-lg sm:text-xl font-semibold">Singles</h2>
                 <div className="text-sm text-white/60">
                   {loading ? "Loading…" : `${singles.length} single${singles.length === 1 ? "" : "s"}`}
                 </div>
@@ -932,7 +963,7 @@ export default function Music() {
                 </div>
               )}
 
-              <div className="mt-6 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+              <div className="mt-6 grid gap-4 sm:gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
                 {singles.map((r) => {
                   const isSongOwned = ownedSongIds.has(r.id);
 
@@ -941,82 +972,70 @@ export default function Music() {
                       key={r.id}
                       className="rounded-2xl border border-white/10 bg-black/40 backdrop-blur-sm overflow-hidden"
                     >
-                      <div className="group relative w-full aspect-square max-w-[500px] overflow-hidden">
+                      <div className="group relative w-full aspect-square overflow-hidden">
                         <img
                           src={r.coverUrl}
                           alt={`${r.title} cover`}
-                          className="h-full w-full object-cover transition duration-300 group-hover:scale-[1.02]"
+                          className="h-full w-full object-cover transition duration-300 md:group-hover:scale-[1.02]"
                           loading="lazy"
                         />
 
-                       {/* ✅ OWNED overlay on COVER */}
-{isSongOwned && (
-  <div className="absolute inset-0 z-20">
-    {/* dark translucent glass layer */}
-    <div className="absolute inset-0 bg-black/35 backdrop-blur-sm rounded-[inherit]" />
+                        {/* ✅ OWNED overlay */}
+                        {isSongOwned && (
+                          <div className="absolute inset-0 z-20">
+                            <div className="absolute inset-0 bg-black/35 backdrop-blur-sm rounded-[inherit]" />
+                            <img
+                              src={songOwnedBadge}
+                              alt="Song owned"
+                              className="absolute inset-0 w-full h-full object-contain scale-[1.2] select-none opacity-95 pointer-events-none"
+                            />
+                          </div>
+                        )}
 
-    {/* owned image fills the cover */}
-    <img
-      src={songOwnedBadge}
-      alt="Song owned"
-      className="
-        absolute inset-0
-        w-full h-full
-        object-contain
-        scale-[1.2]
-        select-none
-        opacity-95
-        pointer-events-none
-      "
-    />
-  </div>
-)}
-
-
-                        <div className="absolute top-3 left-3 flex gap-2 text-xs z-30">
+                        <div className="absolute top-3 left-3 flex gap-2 text-[11px] sm:text-xs z-30">
                           <span className="px-2 py-1 rounded-full bg-white/10 border border-white/15">Single</span>
                           <span className="px-2 py-1 rounded-full bg-black/40 border border-white/10">{r.year}</span>
                         </div>
 
-                        {/* Hover overlay (under owned badge) */}
-                        <div className="pointer-events-none absolute inset-0 bg-black/60 opacity-0 transition duration-200 group-hover:opacity-100 z-10" />
-                        <div className="absolute inset-x-0 bottom-0 p-4 opacity-0 transition duration-200 group-hover:opacity-100 z-30">
-                          <div className="flex gap-2">
-                            <button
-                              type="button"
-                              className="pointer-events-auto flex-1 rounded-xl border border-white/15 bg-white/10 px-4 py-2 text-sm font-semibold hover:bg-white/15"
-                              onClick={() => playSingleDemo(r)}
-                            >
-                              {nowPlayingSingleId === r.id ? "Stop" : isSongOwned ? "Play now" : "Play demo"}
-                            </button>
+                        <div className="pointer-events-none absolute inset-0 bg-black/60 opacity-0 transition duration-200 md:group-hover:opacity-100 z-10" />
 
-                            {!isSongOwned && (
+                        {/* ✅ Cover controls ONLY for NOT-owned songs
+                            (This fixes your earlier request: no “Play now” button over owned overlay + no small text) */}
+                        {!isSongOwned && (
+                          <div className="absolute inset-x-0 bottom-0 p-3 sm:p-4 z-30 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition duration-200">
+                            <div className="flex flex-col sm:flex-row gap-2">
                               <button
                                 type="button"
-                                className="pointer-events-auto flex-1 rounded-xl border border-white/15 bg-white/10 px-4 py-2 text-sm font-semibold hover:bg-white/15"
+                                className="flex-1 rounded-xl border border-white/15 bg-white/10 px-4 py-2 text-sm font-semibold hover:bg-white/15"
+                                onClick={() => playSingleDemo(r)}
+                              >
+                                {nowPlayingSingleId === r.id ? "Stop" : "Play demo"}
+                              </button>
+
+                              <button
+                                type="button"
+                                className="flex-1 rounded-xl border border-white/15 bg-white/10 px-4 py-2 text-sm font-semibold hover:bg-white/15"
                                 onClick={() => void addToCart(r.id, r.title, r.artist, r.priceCents, r.coverUrl)}
                               >
                                 Add to cart
                               </button>
-                            )}
-                          </div>
-                          <div className="mt-2 text-[11px] text-white/65">
-                            {isSongOwned
-                              ? "Owned • Full playback available"
-                              : `Demo plays ${SINGLE_DEMO_SECONDS}s (once per page load)`}
-                          </div>
-                        </div>
+                            </div>
 
-                        {/* Purchase gate overlay (NEVER show for owned songs) */}
+                            <div className="mt-2 text-[11px] text-white/65">
+                              Demo plays {SINGLE_DEMO_SECONDS}s (once per page load)
+                            </div>
+                          </div>
+                        )}
+
                         {!isSongOwned && lockedSongId === r.id && (
-                          <div className="absolute inset-0 z-40 flex items-center justify-center p-5">
+                          <div className="absolute inset-0 z-40 flex items-center justify-center p-4 sm:p-5">
                             <div className="w-full rounded-2xl border border-white/15 bg-black/80 backdrop-blur-sm p-4 text-center">
                               <div className="text-lg font-bold">Keep listening?</div>
                               <div className="mt-2 text-sm text-white/70">
                                 To continue listening, please purchase this song.
                               </div>
 
-                              <div className="mt-4 flex gap-2">
+                              <div className="mt-4 flex flex-col sm:flex-row gap-2">
                                 <button
                                   type="button"
                                   className="flex-1 rounded-xl border border-white/15 bg-white/10 px-4 py-2 text-sm font-semibold hover:bg-white/15"
@@ -1038,9 +1057,9 @@ export default function Music() {
                         )}
                       </div>
 
-                      {/* ✅ Black transparent info section (owned = play now + no price) */}
+                      {/* Info section */}
                       <div className="p-4 bg-black/35 backdrop-blur-sm">
-                        <div className="text-lg font-semibold leading-tight">{r.title}</div>
+                        <div className="text-base sm:text-lg font-semibold leading-tight">{r.title}</div>
                         <div className="text-sm text-white/60">{r.artist}</div>
 
                         <div className="mt-3 flex items-center justify-between gap-3 text-sm">
@@ -1067,9 +1086,9 @@ export default function Music() {
 
             {/* EMBEDS */}
             <section id="embeds" className="mt-14">
-              <h2 className="text-xl font-semibold">Embeds</h2>
+              <h2 className="text-lg sm:text-xl font-semibold">Embeds</h2>
 
-              <div className="mt-6 grid gap-6 lg:grid-cols-3">
+              <div className="mt-6 grid gap-6 grid-cols-1 lg:grid-cols-3">
                 <div className="rounded-2xl border border-white/10 bg-black/40 backdrop-blur-sm p-4">
                   <div className="font-semibold mb-3">Spotify</div>
                   <div className="rounded-xl overflow-hidden border border-white/10 bg-black/30">
@@ -1126,7 +1145,7 @@ export default function Music() {
       {/* ALBUM MODAL */}
       {activeAlbum && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-5"
+          className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5"
           role="dialog"
           aria-modal="true"
           onMouseDown={(e) => {
@@ -1135,10 +1154,10 @@ export default function Music() {
         >
           <div className="absolute inset-0 bg-black/70 backdrop-blur-[2px]" />
 
-          <div className="relative w-full max-w-3xl rounded-2xl border border-white/15 bg-black/85 backdrop-blur-xl overflow-hidden">
-            <div className="p-6 border-b border-white/10 flex items-start justify-between gap-4">
+          <div className="relative w-full max-w-3xl max-h-[88vh] rounded-2xl border border-white/15 bg-black/85 backdrop-blur-xl overflow-hidden flex flex-col">
+            <div className="p-4 sm:p-6 border-b border-white/10 flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
               <div className="min-w-0">
-                <div className="text-2xl font-black truncate">{activeAlbum.title}</div>
+                <div className="text-xl sm:text-2xl font-black truncate">{activeAlbum.title}</div>
                 <div className="text-white/60 mt-1">{activeAlbum.artist}</div>
                 <div className="mt-2 text-sm text-white/75 font-semibold">
                   Album price: {formatZar(activeAlbum.albumPriceCents)}{" "}
@@ -1146,86 +1165,98 @@ export default function Music() {
                 </div>
               </div>
 
-              <button type="button" className={`shrink-0 ${modalWhiteBtn}`} onClick={closeAlbum}>
-                Close
-              </button>
+              <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+                {!albumOwnedIds.has(activeAlbum.id) && (
+                  <button type="button" className={`w-full sm:w-auto ${modalWhiteBtn}`} onClick={() => void buyAlbum(activeAlbum)}>
+                    Buy album
+                  </button>
+                )}
+                <button type="button" className={`w-full sm:w-auto ${modalWhiteBtn}`} onClick={closeAlbum}>
+                  Close
+                </button>
+              </div>
             </div>
 
-            <div className="p-6 grid gap-6 md:grid-cols-[220px_1fr]">
-              <div className="rounded-2xl overflow-hidden border border-white/10 bg-black/40 aspect-square w-full">
-                <img src={activeAlbum.coverUrl} alt="Album cover" className="h-full w-full object-cover" />
-              </div>
-
-              <div className="space-y-3">
-                <div className="text-sm text-white/60">
-                  {activeAlbum.tracks.length} track{activeAlbum.tracks.length === 1 ? "" : "s"} • Release:{" "}
-                  {formatReleaseDate(activeAlbum.releaseDate)}
+            <div className="p-4 sm:p-6 overflow-y-auto">
+              <div className="grid gap-5 md:grid-cols-[220px_1fr]">
+                <div className="rounded-2xl overflow-hidden border border-white/10 bg-black/40 aspect-square w-full">
+                  <img src={activeAlbum.coverUrl} alt="Album cover" className="h-full w-full object-cover" />
                 </div>
 
-                <div className="divide-y divide-white/10 rounded-2xl border border-white/10 overflow-hidden">
-                  {activeAlbum.tracks.map((t) => (
-                    <div key={t.id} className="p-4 bg-black/30 flex items-center justify-between gap-4">
-                      <div className="min-w-0">
-                        <div className="font-semibold truncate text-white">
-                          {t.trackNumber ? `${t.trackNumber}. ` : ""}
-                          {t.title}
-                        </div>
-                        <div className="text-xs text-white/60">
-                          {formatZar(t.priceCents)} • {formatReleaseDate(t.releaseDate)}
-                        </div>
-                      </div>
+                <div className="space-y-3">
+                  <div className="text-sm text-white/60">
+                    {activeAlbum.tracks.length} track{activeAlbum.tracks.length === 1 ? "" : "s"} • Release:{" "}
+                    {formatReleaseDate(activeAlbum.releaseDate)}
+                  </div>
 
-                      <div className="shrink-0 flex items-center gap-2">
-                        <button type="button" className={modalWhiteBtnSm} onClick={() => playAlbumTrackDemo(t)}>
-                          {nowPlayingTrackId === t.id ? "Stop demo" : "Play demo"}
-                        </button>
+                  <div className="divide-y divide-white/10 rounded-2xl border border-white/10 overflow-hidden">
+                    {activeAlbum.tracks.map((t) => {
+                      const isTrackOwned = ownedSongIds.has(t.id);
 
-                        <button
-                          type="button"
-                          className={modalWhiteBtnSm}
-                          onClick={() =>
-                            void addToCart(t.id, t.title, activeAlbum.artist, t.priceCents, activeAlbum.coverUrl)
-                          }
+                      return (
+                        <div
+                          key={t.id}
+                          className="p-4 bg-black/30 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3"
                         >
-                          Add to cart
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
+                          <div className="min-w-0">
+                            <div className="font-semibold truncate text-white">
+                              {t.trackNumber ? `${t.trackNumber}. ` : ""}
+                              {t.title}
+                              {isTrackOwned && <span className="ml-2 text-xs text-white/60">(Owned)</span>}
+                            </div>
+                            <div className="text-xs text-white/60">
+                              {formatZar(t.priceCents)} • {formatReleaseDate(t.releaseDate)}
+                            </div>
+                          </div>
 
-                <div className="flex gap-2 pt-2">
-                  <button
-                    type="button"
-                    className={`flex-1 ${modalWhiteBtn}`}
-                    onClick={() => void addAlbumTracksToCart(activeAlbum)}
-                    title="Adds all album tracks to cart (DB cart only supports songs)."
-                  >
-                    Add all tracks to cart
-                  </button>
-                </div>
+                          <div className="shrink-0 flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+                            <button type="button" className={modalWhiteBtnSm} onClick={() => playAlbumTrackDemo(t)}>
+                              {nowPlayingTrackId === t.id ? "Stop demo" : "Play demo"}
+                            </button>
 
-                <div className="text-xs text-white/50">
-                  Note: This modal is your “album page” without adding routes yet. If you want a real /album/:id page,
-                  we can do that next.
+                            {/* ✅ If track is owned, hide buy option */}
+                            {!isTrackOwned && (
+                              <button
+                                type="button"
+                                className={modalWhiteBtnSm}
+                                onClick={() =>
+                                  void addToCart(t.id, t.title, activeAlbum.artist, t.priceCents, activeAlbum.coverUrl)
+                                }
+                              >
+                                Add to cart
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  <div className="text-xs text-white/50">
+                    Note: This modal is your “album page” without adding routes yet.
+                  </div>
                 </div>
               </div>
             </div>
 
             {lockedAlbumTrackId && (
-              <div className="absolute inset-0 z-50 flex items-center justify-center p-5">
+              <div className="absolute inset-0 z-50 flex items-center justify-center p-4 sm:p-5">
                 <div className="absolute inset-0 bg-black/70" />
                 <div className="relative w-full max-w-md rounded-2xl border border-white/15 bg-black/85 backdrop-blur-xl p-5 text-center">
                   <div className="text-lg font-bold">Keep listening?</div>
                   <div className="mt-2 text-sm text-white/70">To continue listening, please purchase this song.</div>
 
-                  <div className="mt-4 flex gap-2">
+                  <div className="mt-4 flex flex-col sm:flex-row gap-2">
                     <button
                       type="button"
                       className={`flex-1 ${modalWhiteBtn}`}
                       onClick={() => {
                         const t = activeAlbum.tracks.find((x) => x.id === lockedAlbumTrackId);
                         if (!t) {
+                          setLockedAlbumTrackId(null);
+                          return;
+                        }
+                        if (ownedSongIds.has(t.id)) {
                           setLockedAlbumTrackId(null);
                           return;
                         }
