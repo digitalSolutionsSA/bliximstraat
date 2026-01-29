@@ -3,17 +3,20 @@ import Navbar from "../components/layout/Navbar";
 import Footer from "../components/layout/Footer";
 import { supabase } from "../lib/supabase";
 
+type PurchasedSong = {
+  id: string;
+  title: string;
+  artist: string | null;
+  release_date: string | null;
+  cover_url: string | null;
+  audio_url: string | null;
+  price_cents: number | null;
+};
+
 type PurchasedRow = {
   purchased_at: string;
-  songs: {
-    id: string;
-    title: string;
-    artist: string | null;
-    release_date: string | null;
-    cover_url: string | null;
-    audio_url: string | null;
-    price_cents: number | null;
-  } | null;
+  // Supabase relationship selects often come back as an array (even for one-to-one-ish joins)
+  songs: PurchasedSong[] | null;
 };
 
 const formatReleaseDate = (isoDate: string | null) => {
@@ -39,7 +42,11 @@ export default function PurchasedSongs() {
 
   const items = useMemo(() => {
     return (rows ?? [])
-      .map((r) => ({ purchasedAt: r.purchased_at, song: r.songs }))
+      .map((r) => ({
+        purchasedAt: r.purchased_at,
+        // Relationship may be null or [] or [song]
+        song: r.songs?.[0] ?? null,
+      }))
       .filter((x) => !!x.song)
       .map((x) => ({ purchasedAt: x.purchasedAt, song: x.song! }));
   }, [rows]);
@@ -71,7 +78,16 @@ export default function PurchasedSongs() {
         setError(error.message);
         setRows([]);
       } else {
-        setRows((data as PurchasedRow[]) ?? []);
+        // Cast through unknown to satisfy strict TS overlap checks
+        const raw = ((data ?? []) as unknown) as PurchasedRow[];
+
+        // Defensive: normalize songs to [] if null
+        const normalized = raw.map((r) => ({
+          ...r,
+          songs: r.songs ?? [],
+        }));
+
+        setRows(normalized);
       }
 
       setLoading(false);
