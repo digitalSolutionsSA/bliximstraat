@@ -98,10 +98,10 @@ export default function Footer() {
                 bookings@bliximstraat.com
               </a>
               <a
-                href="tel:+27000000000"
+                href="tel:+27686771511"
                 className="block font-semibold text-white/80 hover:text-white transition"
               >
-                +27 00 000 0000
+                +27 68 677 1511
               </a>
             </div>
 

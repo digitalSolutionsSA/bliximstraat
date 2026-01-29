@@ -1,6 +1,5 @@
-import React, { createContext, useContext, useEffect, useMemo, useState } from "react";
+import React, { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "../lib/supabase";
-
 
 /**
  * CartItem shape used by the UI.
@@ -45,16 +44,23 @@ async function getUserId(): Promise<string | null> {
   return data.user?.id ?? null;
 }
 
-/** Get or create a cart for current user, return cart_id. */
+/**
+ * ✅ Get or create a cart for current user, return cart_id.
+ * FIX: If multiple carts exist, choose the newest instead of maybeSingle() chaos.
+ */
 async function getOrCreateCartId(userId: string): Promise<string> {
-  const { data: cart, error: getErr } = await supabase
+  const { data: carts, error: getErr } = await supabase
     .from("carts")
-    .select("id")
+    .select("id, created_at")
     .eq("user_id", userId)
-    .maybeSingle();
+    .order("created_at", { ascending: false });
 
   if (getErr) throw getErr;
-  if (cart?.id) return cart.id;
+
+  if (carts && carts.length > 0) {
+    // Use newest cart
+    return carts[0].id as string;
+  }
 
   const { data: created, error: createErr } = await supabase
     .from("carts")
@@ -63,7 +69,20 @@ async function getOrCreateCartId(userId: string): Promise<string> {
     .single();
 
   if (createErr) throw createErr;
-  return created.id;
+  return created.id as string;
+}
+
+/** Utility: dedupe rows by song_id */
+function dedupeBySongId<T extends { song_id: string }>(rows: T[]): T[] {
+  const seen = new Set<string>();
+  const out: T[] = [];
+  for (const r of rows) {
+    if (!r.song_id) continue;
+    if (seen.has(r.song_id)) continue;
+    seen.add(r.song_id);
+    out.push(r);
+  }
+  return out;
 }
 
 export function CartProvider({ children }: { children: React.ReactNode }) {
@@ -71,19 +90,44 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   const [isOpen, setIsOpen] = useState(false);
   const [loading, setLoading] = useState(true);
 
+  // ✅ Cache cart id for this session (prevents accidental “new cart every call”)
+  const cartIdRef = useRef<string | null>(null);
+  const userIdRef = useRef<string | null>(null);
+
+  const resolveCartId = async (): Promise<{ userId: string; cartId: string }> => {
+    const userId = await getUserId();
+    if (!userId) throw new Error("Not signed in.");
+    userIdRef.current = userId;
+
+    // If we already resolved cartId for this user, reuse it
+    if (cartIdRef.current) return { userId, cartId: cartIdRef.current };
+
+    const cartId = await getOrCreateCartId(userId);
+    cartIdRef.current = cartId;
+    return { userId, cartId };
+  };
+
   const refresh = async () => {
     setLoading(true);
     try {
       const userId = await getUserId();
       if (!userId) {
         setItems([]);
+        cartIdRef.current = null;
+        userIdRef.current = null;
         return;
       }
 
-      const cartId = await getOrCreateCartId(userId);
+      // Ensure cached cart is for current user
+      if (userIdRef.current && userIdRef.current !== userId) {
+        cartIdRef.current = null;
+      }
+      userIdRef.current = userId;
+
+      const cartId = cartIdRef.current ?? (await getOrCreateCartId(userId));
+      cartIdRef.current = cartId;
 
       // Pull cart items + song details in one go
-      // NOTE: Your songs table appears to use price_cents (based on Music.tsx)
       const { data, error } = await supabase
         .from("cart_items")
         .select(
@@ -99,8 +143,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
           )
         `
         )
-        .eq("cart_id", cartId)
-        .order("added_at", { ascending: false });
+        .eq("cart_id", cartId);
 
       if (error) throw error;
 
@@ -122,11 +165,14 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
           .filter(Boolean) as CartItem[];
 
       setItems(mapped);
+    } catch (e) {
+      // Don't leave UI stuck loading forever
+      console.error("Cart refresh failed:", e);
+      setItems([]);
     } finally {
       setLoading(false);
     }
   };
-
   useEffect(() => {
     // Initial load
     refresh();
@@ -134,10 +180,13 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     // React to auth changes so carts don't bleed between users
     const { data } = supabase.auth.onAuthStateChange((event) => {
       if (event === "SIGNED_OUT") {
-        setItems([]); // kill ghost cart immediately
+        setItems([]);
         setLoading(false);
+        cartIdRef.current = null;
+        userIdRef.current = null;
       }
       if (event === "SIGNED_IN") {
+        cartIdRef.current = null;
         refresh();
       }
     });
@@ -147,10 +196,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const addItem: CartContextValue["addItem"] = async (item, qty = 1) => {
-    const userId = await getUserId();
-    if (!userId) throw new Error("You must be signed in to add items to cart.");
-
-    const cartId = await getOrCreateCartId(userId);
+    const { cartId } = await resolveCartId();
 
     // If already exists, increment. Otherwise insert.
     const { data: existing, error: exErr } = await supabase
@@ -163,19 +209,11 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     if (exErr) throw exErr;
 
     if (!existing) {
-      const { error } = await supabase
-        .from("cart_items")
-        .insert({ cart_id: cartId, song_id: item.id, quantity: qty });
-
+      const { error } = await supabase.from("cart_items").insert({ cart_id: cartId, song_id: item.id, quantity: qty });
       if (error) throw error;
     } else {
       const nextQty = Number(existing.quantity ?? 1) + qty;
-
-      const { error } = await supabase
-        .from("cart_items")
-        .update({ quantity: nextQty })
-        .eq("id", existing.id);
-
+      const { error } = await supabase.from("cart_items").update({ quantity: nextQty }).eq("id", existing.id);
       if (error) throw error;
     }
 
@@ -184,44 +222,27 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   };
 
   const removeItem: CartContextValue["removeItem"] = async (songId: string) => {
-    const userId = await getUserId();
-    if (!userId) {
-      setItems([]);
-      return;
+    try {
+      const { cartId } = await resolveCartId();
+      const { error } = await supabase.from("cart_items").delete().eq("cart_id", cartId).eq("song_id", songId);
+      if (error) throw error;
+      await refresh();
+    } catch (e) {
+      console.error("removeItem failed:", e);
+      await refresh();
     }
-
-    const cartId = await getOrCreateCartId(userId);
-
-    const { error } = await supabase
-      .from("cart_items")
-      .delete()
-      .eq("cart_id", cartId)
-      .eq("song_id", songId);
-
-    if (error) throw error;
-
-    await refresh();
   };
 
   const setQtyFn: CartContextValue["setQty"] = async (songId: string, qty: number) => {
-    const userId = await getUserId();
-    if (!userId) throw new Error("You must be signed in to change cart quantity.");
-
-    const cartId = await getOrCreateCartId(userId);
+    const { cartId } = await resolveCartId();
 
     if (qty <= 0) {
-      const { error } = await supabase
-        .from("cart_items")
-        .delete()
-        .eq("cart_id", cartId)
-        .eq("song_id", songId);
-
+      const { error } = await supabase.from("cart_items").delete().eq("cart_id", cartId).eq("song_id", songId);
       if (error) throw error;
       await refresh();
       return;
     }
 
-    // Find the row then update (since unique(cart_id, song_id) exists)
     const { data: existing, error: exErr } = await supabase
       .from("cart_items")
       .select("id")
@@ -232,17 +253,10 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     if (exErr) throw exErr;
 
     if (!existing?.id) {
-      const { error } = await supabase
-        .from("cart_items")
-        .insert({ cart_id: cartId, song_id: songId, quantity: qty });
-
+      const { error } = await supabase.from("cart_items").insert({ cart_id: cartId, song_id: songId, quantity: qty });
       if (error) throw error;
     } else {
-      const { error } = await supabase
-        .from("cart_items")
-        .update({ quantity: qty })
-        .eq("id", existing.id);
-
+      const { error } = await supabase.from("cart_items").update({ quantity: qty }).eq("id", existing.id);
       if (error) throw error;
     }
 
@@ -250,57 +264,59 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   };
 
   const clear: CartContextValue["clear"] = async () => {
-    const userId = await getUserId();
-    if (!userId) {
+    try {
+      const { cartId } = await resolveCartId();
+      const { error } = await supabase.from("cart_items").delete().eq("cart_id", cartId);
+      if (error) throw error;
+      setItems([]); // ✅ instant UI clear
+      await refresh();
+    } catch (e) {
+      console.error("clear failed:", e);
       setItems([]);
-      return;
     }
-
-    const cartId = await getOrCreateCartId(userId);
-
-    const { error } = await supabase.from("cart_items").delete().eq("cart_id", cartId);
-    if (error) throw error;
-
-    await refresh();
   };
 
   /**
    * ✅ Fake checkout:
-   * - reads cart_items
+   * - reads cart_items (for THIS cart)
    * - looks up song prices (price_cents)
    * - creates orders + order_items
    * - upserts user_purchases
    * - clears cart
+   *
+   * IMPORTANT: If your cart contains multiple songs, checkout will purchase multiple songs.
+   * That’s correct behavior. If you expected otherwise, you need a "Buy now" flow.
    */
   const checkout: CartContextValue["checkout"] = async () => {
-    const userId = await getUserId();
-    if (!userId) throw new Error("Please sign in to checkout.");
+    const { userId, cartId } = await resolveCartId();
 
-    const cartId = await getOrCreateCartId(userId);
-
-    // Get raw cart rows
-    const { data: cartRows, error: cartErr } = await supabase
+    // Snapshot cart rows
+    const { data: cartRowsRaw, error: cartErr } = await supabase
       .from("cart_items")
       .select("song_id, quantity")
       .eq("cart_id", cartId);
 
     if (cartErr) throw cartErr;
-    if (!cartRows || cartRows.length === 0) throw new Error("Cart is empty.");
 
-    const songIds = cartRows.map((r: any) => r.song_id);
+    const cartRows = dedupeBySongId((cartRowsRaw ?? []) as Array<{ song_id: string; quantity: number }>);
+    if (cartRows.length === 0) throw new Error("Cart is empty.");
 
-    // Fetch song prices (authoritative, don’t trust client-side)
-    const { data: songs, error: songsErr } = await supabase
-      .from("songs")
-      .select("id, price_cents")
-      .in("id", songIds);
+    // (Optional safety) prevent accidental huge buys while debugging
+    // If you have only a few songs in DB and suddenly cart has 50, this stops it.
+    if (cartRows.length > 10) {
+      throw new Error("Cart contains too many items. Please clear cart and try again.");
+    }
 
+    const songIds = cartRows.map((r) => r.song_id);
+
+    // Fetch prices from songs table
+    const { data: songs, error: songsErr } = await supabase.from("songs").select("id, price_cents").in("id", songIds);
     if (songsErr) throw songsErr;
 
     const priceById = new Map<string, number>();
     (songs ?? []).forEach((s: any) => priceById.set(s.id, Number(s.price_cents ?? 0)));
 
-    const totalCents = cartRows.reduce((sum: number, r: any) => {
+    const totalCents = cartRows.reduce((sum, r) => {
       const priceCents = priceById.get(r.song_id) ?? 0;
       const qty = Number(r.quantity ?? 1);
       return sum + priceCents * qty;
@@ -322,7 +338,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     const orderId = order.id as string;
 
     // Create order_items
-    const orderItems = cartRows.map((r: any) => ({
+    const orderItems = cartRows.map((r) => ({
       order_id: orderId,
       song_id: r.song_id,
       quantity: Number(r.quantity ?? 1),
@@ -333,7 +349,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     if (itemsErr) throw itemsErr;
 
     // Create user_purchases (owned songs)
-    const purchaseRows = cartRows.map((r: any) => ({
+    const purchaseRows = cartRows.map((r) => ({
       user_id: userId,
       song_id: r.song_id,
       order_id: orderId,
@@ -345,10 +361,11 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
 
     if (purchasesErr) throw purchasesErr;
 
-    // Clear cart
+    // Clear cart (DB + UI)
     const { error: clearErr } = await supabase.from("cart_items").delete().eq("cart_id", cartId);
     if (clearErr) throw clearErr;
 
+    setItems([]); // ✅ instant UI clear
     await refresh();
   };
 
