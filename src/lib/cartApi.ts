@@ -1,4 +1,6 @@
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "./supabase";
+
+
 
 export async function getOrCreateCartId(): Promise<string> {
   const { data: auth } = await supabase.auth.getUser();

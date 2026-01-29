@@ -3,17 +3,25 @@ import Navbar from "../components/layout/Navbar";
 import Footer from "../components/layout/Footer";
 import { supabase } from "../lib/supabase";
 
+type OrderSong = {
+  id: string;
+  title: string;
+  artist: string | null;
+};
+
+type OrderItem = {
+  quantity: number;
+  price_cents: number;
+  songs: OrderSong[] | null; // <-- array
+};
+
 type OrderRow = {
   id: string;
   status: string;
   currency: string;
   total_cents: number;
   created_at: string;
-  order_items: Array<{
-    quantity: number;
-    price_cents: number;
-    songs: { id: string; title: string; artist: string | null } | null;
-  }>;
+  order_items: OrderItem[] | null;
 };
 
 const formatZar = (cents: number) =>
@@ -60,7 +68,12 @@ export default function PurchaseHistory() {
         setError(error.message);
         setOrders([]);
       } else {
-        setOrders((data as OrderRow[]) ?? []);
+        const rows = ((data ?? []) as unknown) as OrderRow[];
+        const normalized = rows.map((o) => ({
+          ...o,
+          order_items: o.order_items ?? [],
+        }));
+        setOrders(normalized);
       }
 
       setLoading(false);
@@ -120,24 +133,25 @@ export default function PurchaseHistory() {
                     </div>
 
                     <div className="mt-4 border-t border-white/10 pt-4 space-y-2">
-                      {o.order_items?.map((it, idx) => (
-                        <div key={idx} className="flex items-center justify-between text-sm">
-                          <div className="min-w-0 pr-3">
-                            <div className="font-semibold truncate">
-                              {it.songs?.title ?? "Unknown song"}
-                              <span className="text-white/60 font-normal">
-                                {" "}
-                                • {it.songs?.artist ?? "Bliximstraat"}
-                              </span>
-                            </div>
-                            <div className="text-xs text-white/60">
-                              Qty {it.quantity} • {formatZar(it.price_cents)} each
-                            </div>
-                          </div>
+                      {(o.order_items ?? []).map((it, idx) => {
+                        const song = it.songs?.[0] ?? null;
 
-                          <div className="font-semibold">{formatZar(it.price_cents * it.quantity)}</div>
-                        </div>
-                      ))}
+                        return (
+                          <div key={idx} className="flex items-center justify-between text-sm">
+                            <div className="min-w-0 pr-3">
+                              <div className="font-semibold truncate">
+                                {song?.title ?? "Unknown song"}
+                                <span className="text-white/60 font-normal"> • {song?.artist ?? "Bliximstraat"}</span>
+                              </div>
+                              <div className="text-xs text-white/60">
+                                Qty {it.quantity} • {formatZar(it.price_cents)} each
+                              </div>
+                            </div>
+
+                            <div className="font-semibold">{formatZar(it.price_cents * it.quantity)}</div>
+                          </div>
+                        );
+                      })}
                     </div>
                   </div>
                 ))}
