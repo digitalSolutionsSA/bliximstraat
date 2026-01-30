@@ -18,7 +18,10 @@ export default function Lyrics() {
   const [loadError, setLoadError] = useState<string | null>(null);
 
   const [query, setQuery] = useState("");
+
+  // ✅ Modal state
   const [activeId, setActiveId] = useState<string>("");
+  const [isOpen, setIsOpen] = useState(false);
 
   useEffect(() => {
     const load = async () => {
@@ -69,6 +72,26 @@ export default function Lyrics() {
     return filtered.find((s) => s.id === activeId) ?? filtered[0];
   }, [filtered, activeId]);
 
+  // ✅ Close modal on Escape
+  useEffect(() => {
+    if (!isOpen) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setIsOpen(false);
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [isOpen]);
+
+  // ✅ Lock body scroll when modal open
+  useEffect(() => {
+    if (!isOpen) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, [isOpen]);
+
   return (
     <div className="relative min-h-screen text-white overflow-x-hidden flex flex-col">
       {/* === FIXED VIDEO BACKGROUND (SAME AS MUSIC/SHOWS/MERCH/ABOUT) === */}
@@ -112,7 +135,9 @@ export default function Lyrics() {
 
               {/* Search */}
               <div className="w-full md:w-[360px]">
-                <label className="block text-xs text-white/60 mb-2">Search</label>
+                <label className="block text-xs text-white/60 mb-2">
+                  Search
+                </label>
                 <input
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
@@ -139,98 +164,73 @@ export default function Lyrics() {
               </div>
             )}
 
-            {/* Content */}
+            {/* Grid only (NO lyrics shown on page) */}
             {!loading && songs.length > 0 && (
-              <div className="mt-10 grid grid-cols-1 gap-6 md:grid-cols-12">
-                {/* Song list */}
-                <aside className="md:col-span-4">
-                  <div className="rounded-2xl border border-white/10 bg-black/35 backdrop-blur-xl shadow-[0_18px_60px_rgba(0,0,0,0.45)] overflow-hidden">
-                    <div className="px-5 py-4 border-b border-white/10">
-                      <p className="text-sm text-white/70">
-                        {filtered.length} song{filtered.length === 1 ? "" : "s"}
-                      </p>
-                    </div>
+              <div className="mt-10">
+                <div className="mb-4 text-sm text-white/70">
+                  {filtered.length} song{filtered.length === 1 ? "" : "s"}
+                </div>
 
-                    <div className="max-h-[62vh] overflow-auto">
-                      {filtered.map((s) => {
-                        const active = s.id === activeSong?.id;
-                        return (
-                          <button
-                            key={s.id}
-                            onClick={() => setActiveId(s.id)}
-                            className={`w-full text-left px-5 py-4 border-b border-white/5 transition ${
-                              active ? "bg-white/5" : "hover:bg-white/5"
-                            }`}
-                          >
-                            <div className="flex items-start justify-between gap-3">
-                              <div>
-                                <p className="font-semibold text-white">{s.title}</p>
-                                <p className="mt-1 text-xs text-white/60">
-                                  {s.album ?? "Unknown"}{" "}
-                                  {s.year ? `• ${s.year}` : ""}
-                                </p>
-                              </div>
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-6 gap-4">
+                  {filtered.map((s) => {
+                    const active = s.id === activeId;
+                    return (
+                      <button
+                        key={s.id}
+                        onClick={() => {
+                          setActiveId(s.id);
+                          setIsOpen(true);
+                        }}
+                        className={[
+                          "group relative w-full text-left rounded-2xl overflow-hidden border transition",
+                          "shadow-[0_18px_60px_rgba(0,0,0,0.35)]",
+                          active
+                            ? "border-teal-300/35"
+                            : "border-white/10 hover:border-white/20",
+                        ].join(" ")}
+                      >
+                        {/* gradient vibe layer */}
+                        <div className="absolute inset-0 bg-gradient-to-br from-teal-400/25 via-fuchsia-400/15 to-yellow-300/15" />
+                        {/* dark glass */}
+                        <div className="absolute inset-0 bg-black/45 group-hover:bg-black/40" />
+                        {/* glow edge */}
+                        <div className="pointer-events-none absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-teal-400/60 via-fuchsia-400/30 to-yellow-300/40 opacity-80" />
 
-                              {active && (
-                                <span className="mt-1 inline-flex h-2 w-2 rounded-full bg-teal-300 shadow-[0_0_12px_rgba(20,184,166,0.6)]" />
-                              )}
-                            </div>
-                          </button>
-                        );
-                      })}
+                        <div className="relative p-4">
+                          <div className="flex items-start justify-between gap-2">
+                            <p className="font-semibold leading-snug text-white line-clamp-2">
+                              {s.title}
+                            </p>
+                            {active && (
+                              <span className="mt-1 inline-flex h-2 w-2 rounded-full bg-teal-300 shadow-[0_0_14px_rgba(20,184,166,0.65)]" />
+                            )}
+                          </div>
 
-                      {filtered.length === 0 && (
-                        <div className="px-5 py-10 text-white/60 text-sm">
-                          Nothing found. Try fewer words.
+                          <p className="mt-2 text-[11px] text-white/65 line-clamp-1">
+                            {s.album ?? "Unknown"}
+                            {s.year ? ` • ${s.year}` : ""}
+                          </p>
+
+                          <div className="mt-3 h-[1px] bg-white/10" />
+
+                          <p className="mt-3 text-[11px] text-white/55 line-clamp-2">
+                            Click to view lyrics
+                          </p>
                         </div>
-                      )}
+                      </button>
+                    );
+                  })}
+
+                  {filtered.length === 0 && (
+                    <div className="col-span-full rounded-2xl border border-white/10 bg-black/35 backdrop-blur-sm p-6 text-white/70">
+                      Nothing found. Try fewer words.
                     </div>
-                  </div>
-                </aside>
+                  )}
+                </div>
 
-                {/* Lyrics viewer */}
-                <section className="md:col-span-8">
-                  <div className="relative rounded-2xl border border-white/10 bg-black/35 backdrop-blur-xl shadow-[0_18px_60px_rgba(0,0,0,0.45)] overflow-hidden">
-                    <div className="pointer-events-none absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-teal-400/60 via-fuchsia-400/30 to-yellow-300/40 opacity-70" />
-
-                    <div className="px-6 py-5 border-b border-white/10">
-                      <h2 className="text-2xl font-black tracking-tight">
-                        {activeSong?.title ?? "Select a song"}
-                      </h2>
-                      <p className="mt-1 text-sm text-white/60">
-                        {activeSong?.album ?? "Unknown"}{" "}
-                        {activeSong?.year ? `• ${activeSong.year}` : ""}
-                      </p>
-                    </div>
-
-                    <div className="px-6 py-6">
-                      <pre className="whitespace-pre-wrap text-white/90 leading-relaxed text-base font-mono">
-                        {activeSong?.lyrics ?? "Pick a song on the left."}
-                      </pre>
-
-                      {activeSong && (
-                        <div className="mt-6 flex flex-wrap gap-3">
-                          <button
-                            onClick={async () => {
-                              try {
-                                await navigator.clipboard.writeText(activeSong.lyrics);
-                              } catch {
-                                // browser drama
-                              }
-                            }}
-                            className="rounded-2xl border border-white/10 bg-white/5 px-4 py-2 text-sm text-white/80 hover:bg-white/10 transition"
-                          >
-                            Copy lyrics
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-
-                  <p className="mt-4 text-xs text-white/50">
-                    Tip: You can keep adding lyrics via Admin. This page updates on refresh.
-                  </p>
-                </section>
+                <p className="mt-4 text-xs text-white/50">
+                  Tip: Add more lyrics via Admin. This page updates on refresh.
+                </p>
               </div>
             )}
           </div>
@@ -238,6 +238,69 @@ export default function Lyrics() {
 
         <Footer />
       </div>
+
+      {/* ✅ Lyrics Modal */}
+      {isOpen && activeSong && (
+        <div
+          className="fixed inset-0 z-[999] flex items-center justify-center px-4"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Lyrics modal"
+          onMouseDown={(e) => {
+            // close when clicking the backdrop, not the modal
+            if (e.target === e.currentTarget) setIsOpen(false);
+          }}
+        >
+          {/* backdrop */}
+          <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" />
+
+          {/* modal */}
+          <div className="relative w-full max-w-3xl rounded-2xl border border-white/10 bg-black/45 backdrop-blur-xl shadow-[0_25px_90px_rgba(0,0,0,0.65)] overflow-hidden">
+            <div className="pointer-events-none absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-teal-400/60 via-fuchsia-400/30 to-yellow-300/40 opacity-80" />
+
+            <div className="px-6 py-5 border-b border-white/10 flex items-start justify-between gap-4">
+              <div>
+                <h2 className="text-2xl font-black tracking-tight">
+                  {activeSong.title}
+                </h2>
+                <p className="mt-1 text-sm text-white/60">
+                  {activeSong.album ?? "Unknown"}{" "}
+                  {activeSong.year ? `• ${activeSong.year}` : ""}
+                </p>
+              </div>
+
+              <button
+                onClick={() => setIsOpen(false)}
+                className="shrink-0 rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-white/80 hover:bg-white/10 transition"
+                aria-label="Close"
+              >
+                Close
+              </button>
+            </div>
+
+            <div className="px-6 py-6 max-h-[70vh] overflow-auto">
+              <pre className="whitespace-pre-wrap text-white/90 leading-relaxed text-base font-mono">
+                {activeSong.lyrics}
+              </pre>
+
+              <div className="mt-6 flex flex-wrap gap-3">
+                <button
+                  onClick={async () => {
+                    try {
+                      await navigator.clipboard.writeText(activeSong.lyrics);
+                    } catch {
+                      // browser drama
+                    }
+                  }}
+                  className="rounded-2xl border border-white/10 bg-white/5 px-4 py-2 text-sm text-white/80 hover:bg-white/10 transition"
+                >
+                  Copy lyrics
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

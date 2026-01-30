@@ -11,11 +11,11 @@ const navLinks = [
 ];
 
 const socialLinks = [
-  { label: "Instagram", href: "https://instagram.com" },
-  { label: "TikTok", href: "https://tiktok.com" },
-  { label: "YouTube", href: "https://youtube.com" },
-  { label: "Spotify", href: "https://open.spotify.com" },
-  { label: "Apple Music", href: "https://music.apple.com" },
+  { label: "Instagram", href: "https://www.instagram.com/blixim_straat?utm_source=ig_web_button_share_sheet&igsh=ZDNlZDc0MzIxNw==" },
+  { label: "TikTok", href: "https://www.tiktok.com/@bliximstraat?is_from_webapp=1&sender_device=pc" },
+  { label: "YouTube", href: "http://www.youtube.com/channel/UCaRgHj3J8RjDuS_eyZXdepA" },
+  { label: "Spotify", href: "https://open.spotify.com/artist/0Ch8nVFZCWFF95IXTcgLgT?si=_XGxnXrjQ_CSVaxPAoNxNA" },
+  { label: "Apple Music", href: "https://music.apple.com/us/artist/blixim-straat/1761419580" },
 ];
 
 export default function Footer() {

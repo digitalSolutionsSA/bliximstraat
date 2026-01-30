@@ -14,14 +14,11 @@ import Admin from "./pages/Admin";
 import PurchasedSongs from "./pages/PurchasedSongs";
 import PurchaseHistory from "./pages/PurchaseHistory";
 
-// ✅ Cart (relative imports)
+// ✅ Cart
 import { CartProvider } from "./contexts/CartContext";
 import CartModal from "./components/cart/CartModal";
 
-// ✅ Logo
-import bliximLogo from "./assets/bliximstraat-logo.png";
-
-/* TEMP PLACEHOLDER – used for routes you haven’t built yet */
+/* TEMP PLACEHOLDER */
 function Placeholder({ title }: { title: string }) {
   return (
     <div className="min-h-screen bg-black text-white flex items-center justify-center px-6">
@@ -33,7 +30,9 @@ function Placeholder({ title }: { title: string }) {
   );
 }
 
-/** Fullscreen boot loader (brand-y + matches your home vibe) */
+/* ============================
+   BOOT / LOADING SCREEN
+   ============================ */
 function BootLoader({ show }: { show: boolean }) {
   const [mounted, setMounted] = useState(show);
 
@@ -55,20 +54,22 @@ function BootLoader({ show }: { show: boolean }) {
     >
       {/* Background */}
       <div className="absolute inset-0 bg-gradient-to-b from-black via-[#05080f] to-black" />
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(40,120,255,0.12),transparent_55%)]" />
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(40,120,255,0.14),transparent_55%)]" />
       <div className="absolute inset-0 backdrop-blur-[2px]" />
 
       {/* Content */}
       <div className="relative z-10 flex flex-col items-center px-6">
-        {/* Logo (MUCH bigger) */}
+        {/* LOGO (transparent, instant, from /public) */}
         <img
-          src={bliximLogo}
+          src="/blixim-logo.webp"
           alt="Bliximstraat"
-          className="h-32 sm:h-40 md:h-48 w-auto object-contain select-none drop-shadow-[0_0_25px_rgba(120,180,255,0.35)]"
+          width={720}
+          height={360}
+          className="h-36 sm:h-44 md:h-52 w-auto object-contain select-none drop-shadow-[0_0_30px_rgba(120,180,255,0.4)]"
           draggable={false}
         />
 
-        <div className="h-10" />
+        <div className="h-12" />
 
         {/* Loading bar */}
         <div className="w-72 sm:w-80 md:w-96 h-3 rounded-full bg-white/10 overflow-hidden shadow-inner">
@@ -76,9 +77,9 @@ function BootLoader({ show }: { show: boolean }) {
             className="h-full w-1/3 rounded-full"
             style={{
               background:
-                "linear-gradient(90deg, rgba(120,180,255,0.2), rgba(180,220,255,0.9), rgba(120,180,255,0.2))",
+                "linear-gradient(90deg, rgba(120,180,255,0.2), rgba(180,220,255,0.95), rgba(120,180,255,0.2))",
               animation: "blixLoader 1.2s ease-in-out infinite",
-              boxShadow: "0 0 12px rgba(160,210,255,0.6)",
+              boxShadow: "0 0 14px rgba(160,210,255,0.7)",
             }}
           />
         </div>
@@ -101,12 +102,15 @@ function BootLoader({ show }: { show: boolean }) {
   );
 }
 
+/* ============================
+   APP
+   ============================ */
 export default function App() {
   const [booting, setBooting] = useState(() => {
-    // ✅ DEV: always show on reload so you can test it properly
+    // DEV: always show loader so you can see it
     if (import.meta.env.DEV) return true;
 
-    // ✅ PROD: only show once per tab session
+    // PROD: once per tab
     return sessionStorage.getItem("bgVideoReady") !== "1";
   });
 
@@ -114,8 +118,8 @@ export default function App() {
     if (!booting) return;
 
     const startedAt = Date.now();
-    const MIN_SHOW_MS = 800; // prevents blink
-    const MAX_WAIT_MS = 4500; // safety net
+    const MIN_SHOW_MS = 900;
+    const MAX_WAIT_MS = 4500;
 
     const finish = () => {
       const elapsed = Date.now() - startedAt;
@@ -129,10 +133,8 @@ export default function App() {
 
     const onReady = () => finish();
 
-    // Listen for global ready signal from any page video
     window.addEventListener("bg-video-ready", onReady as EventListener);
 
-    // Safety net: don’t trap users forever
     const timeout = window.setTimeout(() => {
       finish();
     }, MAX_WAIT_MS);
@@ -149,10 +151,7 @@ export default function App() {
         <BootLoader show={booting} />
 
         <Routes>
-          {/* HOME */}
           <Route path="/" element={<Home />} />
-
-          {/* MAIN SITE */}
           <Route path="/music" element={<Music />} />
           <Route path="/shows" element={<Shows />} />
           <Route path="/merch" element={<Merch />} />
@@ -160,19 +159,15 @@ export default function App() {
           <Route path="/lyrics" element={<Lyrics />} />
           <Route path="/bookings" element={<Bookings />} />
 
-          {/* USER */}
           <Route path="/profile" element={<Profile />} />
           <Route path="/purchased" element={<PurchasedSongs />} />
           <Route path="/orders" element={<PurchaseHistory />} />
 
-          {/* ADMIN */}
           <Route path="/admin" element={<Admin />} />
 
-          {/* FALLBACK */}
           <Route path="*" element={<Placeholder title="NOT FOUND" />} />
         </Routes>
 
-        {/* ✅ One global cart modal for the entire app */}
         <CartModal />
       </CartProvider>
     </BrowserRouter>
