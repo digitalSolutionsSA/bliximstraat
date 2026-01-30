@@ -106,6 +106,9 @@ export default function Bookings() {
           muted
           loop
           playsInline
+          preload="auto"
+          onCanPlay={() => window.dispatchEvent(new Event("bg-video-ready"))}
+          onLoadedData={() => window.dispatchEvent(new Event("bg-video-ready"))}
         />
         <div className="absolute inset-0 bg-black/40" />
       </div>

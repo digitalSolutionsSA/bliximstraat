@@ -25,6 +25,9 @@ export default function Home() {
           muted
           loop
           playsInline
+          preload="auto"
+          onCanPlay={() => window.dispatchEvent(new Event("bg-video-ready"))}
+          onLoadedData={() => window.dispatchEvent(new Event("bg-video-ready"))}
         />
 
         {/* Base darkness for readability (a bit stronger on mobile) */}
