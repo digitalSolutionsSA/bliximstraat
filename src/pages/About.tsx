@@ -6,6 +6,7 @@ import { motion } from "framer-motion";
 import { Music2, Sparkles, MapPin, Users, SlidersHorizontal } from "lucide-react";
 import pieterImage from "../assets/pieter.png";
 
+
 export default function About() {
   return (
     <div className="relative min-h-screen text-white overflow-x-hidden flex flex-col">
