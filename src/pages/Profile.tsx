@@ -65,9 +65,21 @@ export default function Profile() {
 
   return (
     <div className="relative min-h-screen text-white overflow-x-hidden flex flex-col">
-      {/* Background */}
-      <div className="fixed inset-0 z-0">
-        <video className="h-full w-full object-cover" src="/normal-bg.mp4" autoPlay muted loop playsInline />
+      {/* Background (fast + mobile-safe) */}
+      <div className="fixed inset-0 z-0 pointer-events-none">
+        <video
+          className="h-full w-full object-cover pointer-events-none select-none"
+          autoPlay
+          muted
+          loop
+          playsInline
+          preload="auto"
+          disablePictureInPicture
+          poster="/normal-bg-poster.jpg"
+        >
+          <source src="/normal-bg.webm" type="video/webm" />
+          <source src="/normal-bg.mp4" type="video/mp4" />
+        </video>
         <div className="absolute inset-0 bg-black/40" />
       </div>
 

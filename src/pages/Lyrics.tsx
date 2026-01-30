@@ -55,9 +55,7 @@ export default function Lyrics() {
     if (!q) return songs;
 
     return songs.filter((s) =>
-      `${s.title} ${s.album ?? ""} ${s.year ?? ""} ${s.lyrics}`
-        .toLowerCase()
-        .includes(q)
+      `${s.title} ${s.album ?? ""} ${s.year ?? ""} ${s.lyrics}`.toLowerCase().includes(q)
     );
   }, [query, songs]);
 
@@ -94,19 +92,23 @@ export default function Lyrics() {
 
   return (
     <div className="relative min-h-screen text-white overflow-x-hidden flex flex-col">
-      {/* === FIXED VIDEO BACKGROUND (SAME AS MUSIC/SHOWS/MERCH/ABOUT) === */}
-      <div className="fixed inset-0 z-0">
+      {/* === FIXED VIDEO BACKGROUND (fast + mobile-safe) === */}
+      <div className="fixed inset-0 z-0 pointer-events-none">
         <video
-          className="h-full w-full object-cover"
-          src="/normal-bg.mp4"
+          className="h-full w-full object-cover pointer-events-none select-none"
           autoPlay
           muted
           loop
           playsInline
           preload="auto"
+          disablePictureInPicture
+          poster="/normal-bg-poster.jpg"
           onCanPlay={() => window.dispatchEvent(new Event("bg-video-ready"))}
           onLoadedData={() => window.dispatchEvent(new Event("bg-video-ready"))}
-        />
+        >
+          <source src="/normal-bg.webm" type="video/webm" />
+          <source src="/normal-bg.mp4" type="video/mp4" />
+        </video>
         <div className="absolute inset-0 bg-black/40" />
       </div>
 
@@ -135,9 +137,7 @@ export default function Lyrics() {
 
               {/* Search */}
               <div className="w-full md:w-[360px]">
-                <label className="block text-xs text-white/60 mb-2">
-                  Search
-                </label>
+                <label className="block text-xs text-white/60 mb-2">Search</label>
                 <input
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
@@ -154,16 +154,13 @@ export default function Lyrics() {
               </div>
             )}
 
-            {loading && (
-              <div className="mt-10 text-white/60">Loading lyrics…</div>
-            )}
+            {loading && <div className="mt-10 text-white/60">Loading lyrics…</div>}
 
             {!loading && !loadError && songs.length === 0 && (
               <div className="mt-10 rounded-2xl border border-white/10 bg-black/35 backdrop-blur-sm p-6 text-white/70">
                 No lyrics yet. Add some in the Admin panel.
               </div>
             )}
-
             {/* Grid only (NO lyrics shown on page) */}
             {!loading && songs.length > 0 && (
               <div className="mt-10">
@@ -184,9 +181,7 @@ export default function Lyrics() {
                         className={[
                           "group relative w-full text-left rounded-2xl overflow-hidden border transition",
                           "shadow-[0_18px_60px_rgba(0,0,0,0.35)]",
-                          active
-                            ? "border-teal-300/35"
-                            : "border-white/10 hover:border-white/20",
+                          active ? "border-teal-300/35" : "border-white/10 hover:border-white/20",
                         ].join(" ")}
                       >
                         {/* gradient vibe layer */}
@@ -198,9 +193,7 @@ export default function Lyrics() {
 
                         <div className="relative p-4">
                           <div className="flex items-start justify-between gap-2">
-                            <p className="font-semibold leading-snug text-white line-clamp-2">
-                              {s.title}
-                            </p>
+                            <p className="font-semibold leading-snug text-white line-clamp-2">{s.title}</p>
                             {active && (
                               <span className="mt-1 inline-flex h-2 w-2 rounded-full bg-teal-300 shadow-[0_0_14px_rgba(20,184,166,0.65)]" />
                             )}
@@ -213,9 +206,7 @@ export default function Lyrics() {
 
                           <div className="mt-3 h-[1px] bg-white/10" />
 
-                          <p className="mt-3 text-[11px] text-white/55 line-clamp-2">
-                            Click to view lyrics
-                          </p>
+                          <p className="mt-3 text-[11px] text-white/55 line-clamp-2">Click to view lyrics</p>
                         </div>
                       </button>
                     );
@@ -260,12 +251,9 @@ export default function Lyrics() {
 
             <div className="px-6 py-5 border-b border-white/10 flex items-start justify-between gap-4">
               <div>
-                <h2 className="text-2xl font-black tracking-tight">
-                  {activeSong.title}
-                </h2>
+                <h2 className="text-2xl font-black tracking-tight">{activeSong.title}</h2>
                 <p className="mt-1 text-sm text-white/60">
-                  {activeSong.album ?? "Unknown"}{" "}
-                  {activeSong.year ? `• ${activeSong.year}` : ""}
+                  {activeSong.album ?? "Unknown"} {activeSong.year ? `• ${activeSong.year}` : ""}
                 </p>
               </div>
 

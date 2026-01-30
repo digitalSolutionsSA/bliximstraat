@@ -97,21 +97,25 @@ export default function Bookings() {
 
   return (
     <div className="relative min-h-screen text-white overflow-x-hidden flex flex-col">
-      {/* === FIXED VIDEO BACKGROUND (SAME PATTERN AS LYRICS) === */}
-      <div className="fixed inset-0 z-0">
-        <video
-          className="h-full w-full object-cover"
-          src="/normal-bg.mp4"
-          autoPlay
-          muted
-          loop
-          playsInline
-          preload="auto"
-          onCanPlay={() => window.dispatchEvent(new Event("bg-video-ready"))}
-          onLoadedData={() => window.dispatchEvent(new Event("bg-video-ready"))}
-        />
-        <div className="absolute inset-0 bg-black/40" />
-      </div>
+      {/* === FIXED VIDEO BACKGROUND (fast + mobile-safe) === */}
+<div className="fixed inset-0 z-0 pointer-events-none">
+  <video
+    autoPlay
+    muted
+    loop
+    playsInline
+    preload="auto"
+    disablePictureInPicture
+    poster="/normal-bg-poster.jpg"
+    className="h-full w-full object-cover pointer-events-none select-none"
+  >
+    <source src="/normal-bg.webm" type="video/webm" />
+    <source src="/normal-bg.mp4" type="video/mp4" />
+  </video>
+
+  <div className="absolute inset-0 bg-black/40" />
+</div>
+
 
       {/* Foreground */}
       <div className="relative z-10 flex flex-col min-h-screen">

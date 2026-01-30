@@ -218,6 +218,7 @@ export default function Music() {
 
   // ✅ known song ids (client-side truth)
   const knownSongIds = useMemo(() => new Set(songs.map((s) => s.id)), [songs]);
+
   // -----------------------------------------
   // ✅ Load owned song ids from user_purchases
   // -----------------------------------------
@@ -438,13 +439,25 @@ export default function Music() {
   };
   return (
     <div className="relative min-h-screen flex flex-col">
-      {/* Background */}
-      <div className="fixed inset-0 z-0 pointer-events-none">
-        <video autoPlay muted loop className="h-full w-full object-cover">
-          <source src="/normal-bg.mp4" />
-        </video>
-        <div className="absolute inset-0 bg-black/45" />
-      </div>
+      {/* Background (fast + mobile-safe) */}
+<div className="fixed inset-0 z-0 pointer-events-none">
+  <video
+    autoPlay
+    muted
+    loop
+    playsInline
+    preload="auto"
+    disablePictureInPicture
+    poster="/normal-bg-poster.jpg"
+    className="h-full w-full object-cover pointer-events-none select-none"
+  >
+    <source src="/normal-bg.webm" type="video/webm" />
+    <source src="/normal-bg.mp4" type="video/mp4" />
+  </video>
+
+  <div className="absolute inset-0 bg-black/45" />
+</div>
+
 
       <div className="relative z-10 flex flex-col min-h-screen text-white">
         <Navbar overlayOnHome={false} />
@@ -570,16 +583,12 @@ export default function Music() {
                     key={e.id}
                     className="rounded-2xl border border-white/10 bg-black/40 backdrop-blur-sm overflow-hidden"
                   >
-                    {/* EMBED AREA (black fill behind iframe so empty zones don’t look awkward) */}
                     <div className="bg-black/70">
                       <div
                         className={`relative w-full overflow-hidden ${
-                          e.platform === "Apple Music"
-                            ? "aspect-[16/7]"
-                            : "aspect-square"
+                          e.platform === "Apple Music" ? "aspect-[16/7]" : "aspect-square"
                         }`}
                       >
-                        {/* Black “fill” + subtle vignette behind iframe */}
                         <div className="absolute inset-0 bg-black" />
                         <div className="absolute inset-0 bg-gradient-to-b from-black/0 via-black/0 to-black/35 pointer-events-none" />
 
@@ -605,7 +614,6 @@ export default function Music() {
                       </div>
                     </div>
 
-                    {/* INFO AREA (attached directly under) */}
                     <div className="p-4 bg-black/35 backdrop-blur-sm border-t border-white/10">
                       <div className="text-base sm:text-lg font-semibold leading-tight">{e.title}</div>
                       <div className="mt-2">
