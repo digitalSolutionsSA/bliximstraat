@@ -2,7 +2,6 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import Navbar from "../components/layout/Navbar";
 import Footer from "../components/layout/Footer";
 import { supabase } from "../lib/supabase";
-import { useCart } from "../contexts/CartContext";
 
 // ✅ Owned overlay image
 import songOwnedBadge from "../assets/song-owned.png";
@@ -31,7 +30,6 @@ const PLATFORM_EMBEDS: PlatformEmbed[] = [
     id: "apple",
     platform: "Apple Music",
     title: "BliximStraat – Cherry En Bubble Gum Milkshake",
-    // ✅ Song embed looks like a proper “player card” (better than artist page)
     src: "https://embed.music.apple.com/us/song/cherry-en-bubble-gum-milkshake/1855232589",
   },
   {
@@ -109,6 +107,7 @@ const OwnedOverlay = ({ src, alt }: { src: string; alt: string }) => (
     />
   </div>
 );
+
 export default function Music() {
   const [songs, setSongs] = useState<SongRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -123,7 +122,8 @@ export default function Music() {
   // 🧪 local-only override for testing
   const [testOwnershipReset, setTestOwnershipReset] = useState(false);
 
-  const { addItem, count } = useCart();
+  // ✅ Yoco purchase loading state (per-song)
+  const [purchaseLoadingId, setPurchaseLoadingId] = useState<string | null>(null);
 
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const demoStopTimerRef = useRef<number | null>(null);
@@ -141,6 +141,21 @@ export default function Music() {
     window.setTimeout(() => setToast(null), 2000);
   };
 
+  // ✅ Toast when returning from Yoco (and clean URL so it doesn't re-toast)
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const status = params.get("payment");
+    if (!status) return;
+
+    if (status === "success") showToast("Payment successful ✅");
+    if (status === "cancelled") showToast("Payment cancelled.");
+    if (status === "failed") showToast("Payment failed. Try again.");
+
+    params.delete("payment");
+    const next = `${window.location.pathname}${params.toString() ? `?${params.toString()}` : ""}`;
+    window.history.replaceState({}, "", next);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const clearAllTimers = () => {
     if (demoStopTimerRef.current) window.clearTimeout(demoStopTimerRef.current);
     if (demoSeekTimerRef.current) window.clearTimeout(demoSeekTimerRef.current);
@@ -272,7 +287,6 @@ export default function Music() {
       cancelled = true;
     };
   }, [userId, testOwnershipReset, knownSongIds]);
-
   // -----------------------------------------
   // ✅ Realtime owned updates (insert/delete)
   // -----------------------------------------
@@ -332,6 +346,46 @@ export default function Music() {
       trackNumber: s.track_number ?? null,
     }));
   }, [songs]);
+
+  // -----------------------------------------
+  // ✅ YOCO CHECKOUT: buy song now
+  // -----------------------------------------
+  const buySongNow = async (r: SingleCard) => {
+    if (ownedSongIds.has(r.id)) return showToast("Already owned.");
+    if (!userId) return showToast("Please sign in to purchase songs.");
+    if (!r.priceCents || r.priceCents < 50) return showToast("Invalid song price.");
+
+    try {
+      setPurchaseLoadingId(r.id);
+
+      const res = await fetch("/.netlify/functions/create-checkout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          itemId: r.id,
+          title: r.title,
+          amountCents: r.priceCents,
+          userId,
+        }),
+      });
+
+      const data = await res.json().catch(() => null);
+
+      if (!res.ok || !data?.redirectUrl) {
+        console.error("Checkout start failed:", data);
+        showToast("Payment failed to start. Check Netlify function + env vars.");
+        setPurchaseLoadingId(null);
+        return;
+      }
+
+      // ✅ Send customer to Yoco hosted checkout
+      window.location.href = data.redirectUrl as string;
+    } catch (err) {
+      console.error(err);
+      showToast("Payment failed to start. Try again.");
+      setPurchaseLoadingId(null);
+    }
+  };
 
   const playOwnedSingle = async (r: SingleCard) => {
     if (!r.audioUrl) return showToast("No audio uploaded.");
@@ -416,48 +470,26 @@ export default function Music() {
     setTestOwnershipReset(true);
     showToast("Test reset: purchases cleared locally.");
   };
-
-  const addToCart = async (r: SingleCard) => {
-    if (ownedSongIds.has(r.id)) return showToast("Already owned.");
-
-    try {
-      await addItem(
-        {
-          id: r.id,
-          title: r.title,
-          artist: r.artist,
-          price: (r.priceCents || 0) / 100,
-          coverUrl: r.coverUrl || undefined,
-        },
-        1
-      );
-      showToast("Added to cart.");
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : "Please sign in to add items to cart.";
-      showToast(msg);
-    }
-  };
   return (
     <div className="relative min-h-screen flex flex-col">
       {/* Background (fast + mobile-safe) */}
-<div className="fixed inset-0 z-0 pointer-events-none">
-  <video
-    autoPlay
-    muted
-    loop
-    playsInline
-    preload="auto"
-    disablePictureInPicture
-    poster="/normal-bg-poster.jpg"
-    className="h-full w-full object-cover pointer-events-none select-none"
-  >
-    <source src="/normal-bg.webm" type="video/webm" />
-    <source src="/normal-bg.mp4" type="video/mp4" />
-  </video>
+      <div className="fixed inset-0 z-0 pointer-events-none">
+        <video
+          autoPlay
+          muted
+          loop
+          playsInline
+          preload="auto"
+          disablePictureInPicture
+          poster="/normal-bg-poster.jpg"
+          className="h-full w-full object-cover pointer-events-none select-none"
+        >
+          <source src="/normal-bg.webm" type="video/webm" />
+          <source src="/normal-bg.mp4" type="video/mp4" />
+        </video>
 
-  <div className="absolute inset-0 bg-black/45" />
-</div>
-
+        <div className="absolute inset-0 bg-black/45" />
+      </div>
 
       <div className="relative z-10 flex flex-col min-h-screen text-white">
         <Navbar overlayOnHome={false} />
@@ -470,13 +502,6 @@ export default function Music() {
                 <div className="mt-2 text-sm text-white/60">
                   {loading ? "Loading…" : `${singles.length} song${singles.length === 1 ? "" : "s"}`}
                   {loadingOwned ? " • checking owned…" : ""}
-                </div>
-              </div>
-
-              <div className="rounded-2xl border border-white/10 bg-black/35 backdrop-blur-sm px-4 py-3">
-                <div className="text-xs text-white/60">Cart</div>
-                <div className="text-sm font-semibold">
-                  {count} item{count === 1 ? "" : "s"}
                 </div>
               </div>
             </div>
@@ -508,6 +533,7 @@ export default function Music() {
               <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
                 {singles.map((r) => {
                   const isOwned = ownedSongIds.has(r.id);
+                  const isBuying = purchaseLoadingId === r.id;
 
                   return (
                     <div key={r.id} className="rounded-2xl bg-black/40 border border-white/10 overflow-hidden">
@@ -547,14 +573,17 @@ export default function Music() {
                               <button
                                 className="flex-1 rounded-xl border border-white/15 bg-white/10 py-2 text-sm font-semibold hover:bg-white/15"
                                 onClick={() => void playSingleDemo(r)}
+                                disabled={isBuying}
                               >
                                 {nowPlayingSingleId === r.id ? "Stop" : `Play demo (${SINGLE_DEMO_SECONDS}s)`}
                               </button>
+
                               <button
-                                className="flex-1 rounded-xl border border-white/15 bg-white/10 py-2 text-sm font-semibold hover:bg-white/15"
-                                onClick={() => void addToCart(r)}
+                                className="flex-1 rounded-xl border border-white/15 bg-white/10 py-2 text-sm font-semibold hover:bg-white/15 disabled:opacity-60 disabled:cursor-not-allowed"
+                                onClick={() => void buySongNow(r)}
+                                disabled={isBuying}
                               >
-                                Add to cart
+                                {isBuying ? "Starting payment…" : "Buy now"}
                               </button>
                             </div>
 
