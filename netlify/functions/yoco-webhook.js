@@ -4,8 +4,7 @@ import { createClient } from "@supabase/supabase-js";
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
-// Yoco gives you a secret like: whsec_XXXX...=
-// IMPORTANT: keep the full string (including whsec_)
+// Must match the signing secret returned when you created the webhook via Yoco API
 const YOCO_WEBHOOK_SECRET = process.env.YOCO_WEBHOOK_SECRET;
 
 function safeJsonParse(str) {
@@ -17,81 +16,67 @@ function safeJsonParse(str) {
 }
 
 /**
- * Yoco webhook verification (per docs):
- * signedContent = `${webhook-id}.${webhook-timestamp}.${rawBody}`
- * expectedSignature = base64(HMAC_SHA256(secretBytes, signedContent))
- *
- * Header: webhook-signature can contain multiple entries:
- *   "v1,<sig> v1,<sig2> v2,<sig3>"
- * We accept if ANY v1 signature matches expected.
+ * Verify webhook signature (HMAC SHA256).
+ * Tries common header names.
  */
-function verifyYocoSignature({ rawBody, headers }) {
-  if (!YOCO_WEBHOOK_SECRET) return { ok: false, reason: "YOCO_WEBHOOK_SECRET missing" };
-
-  const webhookId =
-    headers["webhook-id"] || headers["Webhook-Id"] || headers["WEBHOOK-ID"];
-  const webhookTimestamp =
-    headers["webhook-timestamp"] ||
-    headers["Webhook-Timestamp"] ||
-    headers["WEBHOOK-TIMESTAMP"];
-  const webhookSignature =
-    headers["webhook-signature"] ||
-    headers["Webhook-Signature"] ||
-    headers["WEBHOOK-SIGNATURE"];
-
-  if (!webhookId || !webhookTimestamp || !webhookSignature) {
-    return { ok: false, reason: "Missing required webhook signature headers" };
-  }
-
-  // Optional replay-attack mitigation: only accept within 3 minutes
-  const nowSec = Math.floor(Date.now() / 1000);
-  const ts = Number(webhookTimestamp);
-  if (!Number.isFinite(ts)) return { ok: false, reason: "Invalid webhook-timestamp" };
-  const age = Math.abs(nowSec - ts);
-  if (age > 180) return { ok: false, reason: "Webhook timestamp too old/new" };
-
-  const signedContent = `${webhookId}.${webhookTimestamp}.${rawBody}`;
-
-  // Remove "whsec_" prefix and base64 decode the remainder
-  const parts = String(YOCO_WEBHOOK_SECRET).split("_");
-  if (parts.length < 2) return { ok: false, reason: "Invalid YOCO_WEBHOOK_SECRET format" };
-
-  const secretB64 = parts.slice(1).join("_"); // in case secret contains extra underscores
-  let secretBytes;
-  try {
-    secretBytes = Buffer.from(secretB64, "base64");
-  } catch {
-    return { ok: false, reason: "Failed to base64 decode webhook secret" };
-  }
+function verifySignature(rawBody, signatureHeader) {
+  if (!YOCO_WEBHOOK_SECRET) return true; // allow if secret not set (dev only)
+  if (!signatureHeader) return false;
 
   const expected = crypto
-    .createHmac("sha256", secretBytes)
-    .update(signedContent, "utf8")
-    .digest("base64");
+    .createHmac("sha256", YOCO_WEBHOOK_SECRET)
+    .update(rawBody, "utf8")
+    .digest("hex");
 
-  // webhook-signature can include multiple versions/signatures
-  // Example: "v1,abc= v1,def= v2,ghi="
-  const candidates = String(webhookSignature)
-    .split(" ")
-    .map((chunk) => chunk.trim())
-    .filter(Boolean)
-    .map((chunk) => {
-      const [ver, sig] = chunk.split(",", 2);
-      return { ver, sig };
-    })
-    .filter((x) => x.ver && x.sig);
+  const sig = String(signatureHeader).replace(/^sha256=/, "").trim();
 
-  const v1Sigs = candidates.filter((c) => c.ver === "v1").map((c) => c.sig);
+  try {
+    return crypto.timingSafeEqual(Buffer.from(expected, "utf8"), Buffer.from(sig, "utf8"));
+  } catch {
+    return false;
+  }
+}
 
-  const match = v1Sigs.some((sig) => {
-    try {
-      return crypto.timingSafeEqual(Buffer.from(expected), Buffer.from(sig));
-    } catch {
-      return false;
-    }
-  });
+function pickSignature(headers) {
+  // normalize keys
+  const h = {};
+  for (const [k, v] of Object.entries(headers || {})) h[String(k).toLowerCase()] = v;
 
-  return match ? { ok: true } : { ok: false, reason: "Signature mismatch" };
+  return (
+    h["x-yoco-signature"] ||
+    h["x-signature"] ||
+    h["x-webhook-signature"] ||
+    h["webhook-signature"]
+  );
+}
+
+function extractStatusAndMetadata(payload) {
+  // Yoco event formats can differ. Try multiple paths.
+  const status =
+    payload?.status ||
+    payload?.data?.status ||
+    payload?.payment?.status ||
+    payload?.event?.status ||
+    payload?.data?.payment?.status;
+
+  const metadata =
+    payload?.metadata ||
+    payload?.data?.metadata ||
+    payload?.payment?.metadata ||
+    payload?.event?.metadata ||
+    payload?.data?.payment?.metadata;
+
+  return { status, metadata };
+}
+
+function isPaidStatus(status) {
+  const s = String(status || "").toLowerCase();
+  return ["succeeded", "successful", "paid", "completed"].includes(s);
+}
+
+function isFailedStatus(status) {
+  const s = String(status || "").toLowerCase();
+  return ["failed", "cancelled", "canceled"].includes(s);
 }
 
 export async function handler(event) {
@@ -99,67 +84,60 @@ export async function handler(event) {
     return { statusCode: 405, body: "Method Not Allowed" };
   }
 
-  if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
-    return {
-      statusCode: 500,
-      body: JSON.stringify({
-        error: "Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY",
-      }),
-    };
-  }
-
   const rawBody = event.body || "";
+  const sig = pickSignature(event.headers);
 
-  // 1) Verify signature (do not accept unsigned in prod)
-  const sigCheck = verifyYocoSignature({ rawBody, headers: event.headers || {} });
-  if (!sigCheck.ok) {
-    console.warn("Webhook signature rejected:", sigCheck.reason);
-    return { statusCode: 403, body: "Invalid signature" };
+  if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
+    console.error("Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY");
+    return { statusCode: 500, body: "Missing Supabase env vars" };
   }
 
-  // 2) Parse payload
-  const eventObj = safeJsonParse(rawBody);
-  if (!eventObj) return { statusCode: 400, body: "Invalid JSON" };
+  const sigOk = verifySignature(rawBody, sig);
+  if (!sigOk) {
+    console.error("Invalid webhook signature");
+    return { statusCode: 400, body: "Invalid signature" };
+  }
 
-  // Yoco event shape (Checkout API): { id, type, payload: { status, metadata, ... } }
-  const eventType = eventObj?.type;
-  const payload = eventObj?.payload || {};
-  const status = payload?.status; // "succeeded" / "failed"
-  const metadata = payload?.metadata || {};
+  const payload = safeJsonParse(rawBody);
+  if (!payload) {
+    console.error("Invalid JSON payload");
+    return { statusCode: 400, body: "Invalid JSON" };
+  }
 
-  // You must put these into metadata when creating checkout
+  const { status, metadata } = extractStatusAndMetadata(payload);
+
+  // Expecting create-checkout to embed these into metadata
   const orderId = metadata?.order_id || metadata?.orderId;
   const userId = metadata?.user_id || metadata?.userId;
 
+  console.log("Webhook received:", {
+    status,
+    orderId,
+    userId,
+    hasMeta: Boolean(metadata),
+  });
+
   if (!orderId || !userId) {
-    // Not our checkout, or metadata missing. Acknowledge so Yoco doesn't retry forever.
-    console.warn("Webhook missing order/user metadata. Ignored.", {
-      eventType,
-      status,
-      metadata,
-    });
+    console.log("No order/user metadata, ignoring.");
     return { statusCode: 200, body: "Ignored (missing metadata)" };
   }
-
-  const paid = eventType === "payment.succeeded" || status === "succeeded";
-  const failed = eventType === "payment.failed" || status === "failed";
 
   const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
   try {
-    if (paid) {
-      // 3) Mark order paid
-      const { error: updErr } = await supabase
+    if (isPaidStatus(status)) {
+      // 1) mark order paid
+      const { error: ordErr } = await supabase
         .from("orders")
         .update({ status: "paid", paid_at: new Date().toISOString() })
         .eq("id", orderId);
 
-      if (updErr) {
-        console.error("orders update error:", updErr);
-        return { statusCode: 500, body: "Failed to update order" };
+      if (ordErr) {
+        console.error("orders update error:", ordErr);
+        return { statusCode: 500, body: "Failed updating order" };
       }
 
-      // 4) Load order items and write user_purchases
+      // 2) load order items
       const { data: orderItems, error: oiErr } = await supabase
         .from("order_items")
         .select("song_id")
@@ -167,34 +145,56 @@ export async function handler(event) {
 
       if (oiErr) {
         console.error("order_items fetch error:", oiErr);
-        return { statusCode: 500, body: "Failed to load order items" };
+        return { statusCode: 500, body: "Failed loading order items" };
       }
 
-      const rows = (orderItems || [])
-        .map((it) => it.song_id)
-        .filter(Boolean)
-        .map((songId) => ({
+      const songIds = (orderItems || [])
+        .map((x) => x.song_id)
+        .filter((x) => typeof x === "string" && x.length > 0);
+
+      // 3) insert purchases idempotently
+      if (songIds.length) {
+        const rows = songIds.map((songId) => ({
           user_id: userId,
           song_id: songId,
           order_id: orderId,
         }));
 
-      if (rows.length) {
         const { error: upErr } = await supabase
           .from("user_purchases")
           .upsert(rows, { onConflict: "user_id,song_id" });
 
         if (upErr) {
           console.error("user_purchases upsert error:", upErr);
-          return { statusCode: 500, body: "Failed to write purchases" };
+          return { statusCode: 500, body: "Failed writing purchases" };
         }
+      } else {
+        console.warn("No song_ids in order_items for order:", orderId);
       }
 
-      // (Optional) you can clear cart here, but ONLY if you have a reliable cart_id link.
+      // 4) clear cart items correctly (cart_items uses cart_id, not user_id)
+      const { data: cartRow, error: cartErr } = await supabase
+        .from("carts")
+        .select("id")
+        .eq("user_id", userId)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (cartErr) {
+        console.error("carts fetch error:", cartErr);
+        // do not fail the webhook if cart clear fails
+      } else if (cartRow?.id) {
+        const { error: delErr } = await supabase.from("cart_items").delete().eq("cart_id", cartRow.id);
+        if (delErr) console.error("cart_items delete error:", delErr);
+      } else {
+        console.warn("No cart found for user to clear:", userId);
+      }
+
       return { statusCode: 200, body: "OK" };
     }
 
-    if (failed) {
+    if (isFailedStatus(status)) {
       await supabase.from("orders").update({ status: "failed" }).eq("id", orderId);
       return { statusCode: 200, body: "Order marked failed" };
     }

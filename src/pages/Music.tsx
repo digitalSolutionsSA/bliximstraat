@@ -9,7 +9,6 @@ import { useCart } from "../contexts/CartContext";
 // ✅ Owned overlay image
 import songOwnedBadge from "../assets/song-owned.png";
 
-const TEST_RESET_OWNERSHIP_EACH_RELOAD = false;
 const DEBUG_OWNERSHIP = false;
 
 /* -------------------------------------------
@@ -111,6 +110,55 @@ const OwnedOverlay = ({ src, alt }: { src: string; alt: string }) => (
   </div>
 );
 
+function SignInFirstModal({
+  open,
+  onClose,
+  onGoSignIn,
+}: {
+  open: boolean;
+  onClose: () => void;
+  onGoSignIn: () => void;
+}) {
+  if (!open) return null;
+
+  return (
+    <div className="fixed inset-0 z-[120]">
+      <button
+        type="button"
+        aria-label="Close"
+        className="absolute inset-0 bg-black/70"
+        onClick={onClose}
+      />
+      <div className="absolute left-1/2 top-1/2 w-[92vw] max-w-md -translate-x-1/2 -translate-y-1/2">
+        <div className="rounded-2xl border border-white/15 bg-black/80 backdrop-blur-xl shadow-2xl overflow-hidden text-white">
+          <div className="px-5 py-4 border-b border-white/10">
+            <div className="text-lg font-semibold">Sign in first</div>
+            <div className="mt-1 text-sm text-white/70">
+              You need to be signed in to buy songs and unlock full playback.
+            </div>
+          </div>
+
+          <div className="px-5 py-4 flex gap-2">
+            <button
+              type="button"
+              className="flex-1 rounded-xl border border-white/15 bg-white/10 py-2 text-sm font-semibold hover:bg-white/15"
+              onClick={onClose}
+            >
+              Not now
+            </button>
+            <button
+              type="button"
+              className="flex-1 rounded-xl bg-white text-black py-2 text-sm font-semibold hover:bg-white/90"
+              onClick={onGoSignIn}
+            >
+              Sign in
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
 export default function Music() {
   const [songs, setSongs] = useState<SongRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -125,8 +173,11 @@ export default function Music() {
   const [ownedSongIds, setOwnedSongIds] = useState<Set<string>>(new Set());
   const [loadingOwned, setLoadingOwned] = useState(false);
 
-  // 🧪 local-only override for testing
-  const [testOwnershipReset, setTestOwnershipReset] = useState(false);
+  // Used to manually force reload of owned purchases (e.g. after payment return)
+  const [ownedRefreshNonce, setOwnedRefreshNonce] = useState(0);
+
+  // Sign-in modal for “add to cart” when not signed in
+  const [signInModalOpen, setSignInModalOpen] = useState(false);
 
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const demoStopTimerRef = useRef<number | null>(null);
@@ -141,22 +192,46 @@ export default function Music() {
 
   const showToast = (msg: string) => {
     setToast(msg);
-    window.setTimeout(() => setToast(null), 2000);
+    window.setTimeout(() => setToast(null), 2200);
   };
 
-  // ✅ Toast when returning from Yoco (and clean URL so it doesn't re-toast)
+  const refreshOwned = () => setOwnedRefreshNonce((n) => n + 1);
+
+  // ✅ Toast + refresh owned when returning from Yoco
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const status = params.get("payment");
+    const orderId = params.get("order");
+
     if (!status) return;
 
-    if (status === "success") showToast("Payment successful ✅");
+    if (status === "success") {
+      showToast("Payment successful ✅ Finalizing ownership…");
+
+      // Kick a few refresh attempts since webhook can take a moment
+      refreshOwned();
+      const timers: number[] = [];
+      for (let i = 1; i <= 5; i++) {
+        timers.push(
+          window.setTimeout(() => {
+            refreshOwned();
+          }, i * 1500)
+        );
+      }
+
+      // cleanup timers on unmount
+      return () => timers.forEach((t) => window.clearTimeout(t));
+    }
+
     if (status === "cancelled") showToast("Payment cancelled.");
     if (status === "failed") showToast("Payment failed. Try again.");
 
+    // Clean URL so it doesn't re-toast
     params.delete("payment");
+    params.delete("order"); // we don't need to keep it in the URL forever
     const next = `${window.location.pathname}${params.toString() ? `?${params.toString()}` : ""}`;
     window.history.replaceState({}, "", next);
+
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -180,6 +255,7 @@ export default function Music() {
     }
     setNowPlayingSingleId(null);
   };
+
   // -----------------------------
   // Load songs + init audio + auth
   // -----------------------------
@@ -213,7 +289,11 @@ export default function Music() {
     void loadSongs();
     void initAuth();
 
-    const { data: sub } = supabase.auth.onAuthStateChange((_e, s) => setUserId(s?.user?.id ?? null));
+    const { data: sub } = supabase.auth.onAuthStateChange((_e, s) => {
+      setUserId(s?.user?.id ?? null);
+      // refresh owned whenever auth changes
+      refreshOwned();
+    });
 
     if (!audioRef.current) {
       const a = new Audio();
@@ -244,11 +324,6 @@ export default function Music() {
     let cancelled = false;
 
     const loadOwned = async () => {
-      if (TEST_RESET_OWNERSHIP_EACH_RELOAD || testOwnershipReset) {
-        setOwnedSongIds(new Set());
-        return;
-      }
-
       if (!userId) {
         setOwnedSongIds(new Set());
         return;
@@ -289,14 +364,12 @@ export default function Music() {
     return () => {
       cancelled = true;
     };
-  }, [userId, testOwnershipReset, knownSongIds]);
-
+  }, [userId, knownSongIds, ownedRefreshNonce]);
   // -----------------------------------------
   // ✅ Realtime owned updates (insert/delete)
   // -----------------------------------------
   useEffect(() => {
     if (!userId) return;
-    if (TEST_RESET_OWNERSHIP_EACH_RELOAD || testOwnershipReset) return;
 
     const channel = supabase
       .channel(`user_purchases:${userId}`)
@@ -334,7 +407,7 @@ export default function Music() {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [userId, knownSongIds, testOwnershipReset]);
+  }, [userId, knownSongIds]);
 
   const singles: SingleCard[] = useMemo(() => {
     return songs.map((s) => ({
@@ -352,11 +425,14 @@ export default function Music() {
   }, [songs]);
 
   // -----------------------------------------
-  // ✅ Add to cart (replaces Buy now)
+  // ✅ Add to cart
   // -----------------------------------------
   const addToCart = async (r: SingleCard) => {
     if (ownedSongIds.has(r.id)) return showToast("Already owned.");
-    if (!userId) return showToast("Please sign in to add songs to your cart.");
+    if (!userId) {
+      setSignInModalOpen(true);
+      return;
+    }
     if (!r.priceCents || r.priceCents < 50) return showToast("Invalid song price.");
 
     try {
@@ -365,7 +441,7 @@ export default function Music() {
           id: r.id,
           title: r.title,
           artist: r.artist,
-          price: (r.priceCents || 0) / 100, // CartContext expects ZAR (rands), not cents
+          price: (r.priceCents || 0) / 100, // CartContext expects ZAR (rands)
           coverUrl: r.coverUrl || undefined,
         },
         1
@@ -453,17 +529,20 @@ export default function Music() {
     }
   };
 
-  const resetOwnershipForTesting = () => {
-    stopAllAudio();
-    setLockedSongId(null);
-    playedSinglesThisSessionRef.current = new Set();
-    setOwnedSongIds(new Set());
-    setTestOwnershipReset(true);
-    showToast("Test reset: purchases cleared locally.");
-  };
   return (
     <div className="relative min-h-screen flex flex-col">
-      {/* Background (fast + mobile-safe) */}
+      {/* Sign-in modal */}
+      <SignInFirstModal
+        open={signInModalOpen}
+        onClose={() => setSignInModalOpen(false)}
+        onGoSignIn={() => {
+          setSignInModalOpen(false);
+          // Adjust if your sign-in page is different
+          window.location.href = "/profile";
+        }}
+      />
+
+      {/* Background */}
       <div className="fixed inset-0 z-0 pointer-events-none">
         <video
           autoPlay
@@ -496,14 +575,6 @@ export default function Music() {
                 </div>
               </div>
             </div>
-
-            <button
-              onClick={resetOwnershipForTesting}
-              className="mt-4 rounded-xl border border-white/15 bg-white/10 px-4 py-2 text-sm font-semibold hover:bg-white/15"
-              title="Testing only: clears owned state locally (does NOT delete DB purchases)"
-            >
-              Reset ownership (test)
-            </button>
 
             {toast && (
               <div className="mt-4 rounded-2xl border border-white/10 bg-black/45 backdrop-blur-sm px-5 py-3 text-sm text-white/80">
