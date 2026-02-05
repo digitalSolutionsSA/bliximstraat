@@ -63,8 +63,7 @@ export const handler = async (event) => {
     // Service role client
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
-    // ---- 1) Find the user's active cart ----
-    // Adjust status column if yours is named differently (e.g. "state")
+    // ---- 1) Find user's latest cart ----
     const { data: cartRow, error: cartErr } = await supabase
       .from("carts")
       .select("id")
@@ -83,9 +82,10 @@ export const handler = async (event) => {
     }
 
     // ---- 2) Load cart items by cart_id ----
+    // IMPORTANT: your column is `quantity`, not `qty`
     const { data: cartItemsRaw, error: ciErr } = await supabase
       .from("cart_items")
-      .select("song_id, qty")
+      .select("song_id, quantity")
       .eq("cart_id", cartId);
 
     if (ciErr) {
@@ -99,7 +99,7 @@ export const handler = async (event) => {
     const items = (cartItemsRaw || [])
       .map((r) => ({
         song_id: r.song_id,
-        qty: Math.max(1, Number(r.qty || 1)),
+        qty: Math.max(1, Number(r.quantity || 1)),
       }))
       .filter((r) => typeof r.song_id === "string" && r.song_id.length > 0);
 
@@ -107,7 +107,7 @@ export const handler = async (event) => {
       return { statusCode: 400, body: JSON.stringify({ error: "Cart items are invalid" }) };
     }
 
-    // ---- 3) Load songs (no join required) ----
+    // ---- 3) Load songs ----
     const songIds = [...new Set(items.map((i) => i.song_id))];
 
     const { data: songs, error: songsErr } = await supabase
