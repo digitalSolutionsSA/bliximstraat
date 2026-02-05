@@ -1,6 +1,5 @@
 import crypto from "crypto";
-const { createClient } = require("@supabase/supabase-js");
-
+import { createClient } from "@supabase/supabase-js";
 
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -39,7 +38,7 @@ function verifySignature(rawBody, signatureHeader) {
   }
 }
 
-exports.handler = async (event) => {
+export const handler = async (event) => {
   // Yoco will POST here
   if (event.httpMethod !== "POST") {
     return { statusCode: 405, body: "Method Not Allowed" };
@@ -49,10 +48,10 @@ exports.handler = async (event) => {
 
   // Common signature header names (depends on Yoco config)
   const sig =
-    event.headers["x-yoco-signature"] ||
-    event.headers["X-Yoco-Signature"] ||
-    event.headers["x-signature"] ||
-    event.headers["X-Signature"];
+    event.headers?.["x-yoco-signature"] ||
+    event.headers?.["X-Yoco-Signature"] ||
+    event.headers?.["x-signature"] ||
+    event.headers?.["X-Signature"];
 
   // 1) Verify signature (if you have a webhook secret configured)
   if (YOCO_WEBHOOK_SECRET) {
@@ -166,4 +165,4 @@ exports.handler = async (event) => {
     console.error("Webhook handler error:", e);
     return { statusCode: 500, body: "Webhook error" };
   }
-}
+};
