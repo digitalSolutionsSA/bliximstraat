@@ -201,7 +201,6 @@ export default function Music() {
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const status = params.get("payment");
-    const orderId = params.get("order");
 
     if (!status) return;
 
@@ -219,6 +218,12 @@ export default function Music() {
         );
       }
 
+      // Clean URL so it doesn't re-toast
+      params.delete("payment");
+      params.delete("order");
+      const next = `${window.location.pathname}${params.toString() ? `?${params.toString()}` : ""}`;
+      window.history.replaceState({}, "", next);
+
       // cleanup timers on unmount
       return () => timers.forEach((t) => window.clearTimeout(t));
     }
@@ -228,7 +233,7 @@ export default function Music() {
 
     // Clean URL so it doesn't re-toast
     params.delete("payment");
-    params.delete("order"); // we don't need to keep it in the URL forever
+    params.delete("order");
     const next = `${window.location.pathname}${params.toString() ? `?${params.toString()}` : ""}`;
     window.history.replaceState({}, "", next);
 
