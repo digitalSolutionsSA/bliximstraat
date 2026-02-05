@@ -1,9 +1,10 @@
 import { useState } from "react";
 import { X, Trash2, Minus, Plus } from "lucide-react";
 import { useCart } from "../../contexts/CartContext";
+import { supabase } from "../../lib/supabase";
 
 export default function CartModal() {
-  const { isOpen, close, items, subtotal, setQty, removeItem, loading, checkout } = useCart();
+  const { isOpen, close, items, subtotal, setQty, removeItem, loading } = useCart();
 
   const [busyItemId, setBusyItemId] = useState<string | null>(null);
   const [checkingOut, setCheckingOut] = useState(false);
@@ -27,13 +28,63 @@ export default function CartModal() {
     }
   };
 
+  /**
+   * ✅ Real checkout:
+   * - Only happens from cart
+   * - Calls Netlify function to create a Yoco checkout session
+   * - Redirects user to Yoco hosted checkout page
+   */
   const doCheckout = async () => {
     try {
       setCheckingOut(true);
-      await checkout();
-      showToast("Fake checkout complete ✅");
-      close();
+
+      if (loading) {
+        showToast("Cart still loading…");
+        return;
+      }
+
+      if (!items.length) {
+        showToast("Cart is empty.");
+        return;
+      }
+
+      // ✅ Get auth token to prove who the user is (server-side should verify)
+      const { data: sessionData, error: sessionErr } = await supabase.auth.getSession();
+      if (sessionErr) {
+        console.error(sessionErr);
+        showToast("Session error. Please sign in again.");
+        return;
+      }
+
+      const token = sessionData?.session?.access_token;
+      if (!token) {
+        showToast("Please sign in to checkout.");
+        return;
+      }
+
+      // ✅ Create checkout session server-side (Netlify Function)
+      const res = await fetch("/.netlify/functions/create-checkout", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        // Body can be empty if server loads cart from DB (preferred)
+        body: JSON.stringify({}),
+      });
+
+      const data = await res.json().catch(() => null);
+
+      if (!res.ok || !data?.redirectUrl) {
+        console.error("Checkout start failed:", data);
+        showToast("Payment failed to start. Check Netlify function + env vars.");
+        return;
+      }
+
+      // ✅ Redirect to Yoco
+      window.location.href = data.redirectUrl as string;
     } catch (e: any) {
+      console.error(e);
       showToast(e?.message || "Checkout failed.");
     } finally {
       setCheckingOut(false);
@@ -138,9 +189,7 @@ export default function CartModal() {
                             </button>
                           </div>
 
-                          <div className="text-sm font-semibold">
-                            R {(it.price * it.qty).toFixed(2)}
-                          </div>
+                          <div className="text-sm font-semibold">R {(it.price * it.qty).toFixed(2)}</div>
                         </div>
                       </div>
                     </li>
@@ -163,11 +212,11 @@ export default function CartModal() {
               type="button"
               onClick={doCheckout}
             >
-              {checkingOut ? "Processing…" : "Checkout (Fake)"}
+              {checkingOut ? "Redirecting to payment…" : "Checkout"}
             </button>
 
             <div className="mt-2 text-[11px] text-white/50">
-              This creates an order + purchase records, then clears your cart. No payment gateway yet.
+              You’ll be redirected to secure payment. After payment, you’ll return to the site.
             </div>
           </div>
         </div>

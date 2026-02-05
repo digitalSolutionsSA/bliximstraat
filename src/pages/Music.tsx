@@ -3,6 +3,9 @@ import Navbar from "../components/layout/Navbar";
 import Footer from "../components/layout/Footer";
 import { supabase } from "../lib/supabase";
 
+// ✅ Cart
+import { useCart } from "../contexts/CartContext";
+
 // ✅ Owned overlay image
 import songOwnedBadge from "../assets/song-owned.png";
 
@@ -115,15 +118,15 @@ export default function Music() {
 
   const [userId, setUserId] = useState<string | null>(null);
 
+  // ✅ Cart
+  const { addItem } = useCart();
+
   // ✅ Owned state
   const [ownedSongIds, setOwnedSongIds] = useState<Set<string>>(new Set());
   const [loadingOwned, setLoadingOwned] = useState(false);
 
   // 🧪 local-only override for testing
   const [testOwnershipReset, setTestOwnershipReset] = useState(false);
-
-  // ✅ Yoco purchase loading state (per-song)
-  const [purchaseLoadingId, setPurchaseLoadingId] = useState<string | null>(null);
 
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const demoStopTimerRef = useRef<number | null>(null);
@@ -156,6 +159,7 @@ export default function Music() {
     window.history.replaceState({}, "", next);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
   const clearAllTimers = () => {
     if (demoStopTimerRef.current) window.clearTimeout(demoStopTimerRef.current);
     if (demoSeekTimerRef.current) window.clearTimeout(demoSeekTimerRef.current);
@@ -176,7 +180,6 @@ export default function Music() {
     }
     setNowPlayingSingleId(null);
   };
-
   // -----------------------------
   // Load songs + init audio + auth
   // -----------------------------
@@ -287,6 +290,7 @@ export default function Music() {
       cancelled = true;
     };
   }, [userId, testOwnershipReset, knownSongIds]);
+
   // -----------------------------------------
   // ✅ Realtime owned updates (insert/delete)
   // -----------------------------------------
@@ -348,42 +352,29 @@ export default function Music() {
   }, [songs]);
 
   // -----------------------------------------
-  // ✅ YOCO CHECKOUT: buy song now
+  // ✅ Add to cart (replaces Buy now)
   // -----------------------------------------
-  const buySongNow = async (r: SingleCard) => {
+  const addToCart = async (r: SingleCard) => {
     if (ownedSongIds.has(r.id)) return showToast("Already owned.");
-    if (!userId) return showToast("Please sign in to purchase songs.");
+    if (!userId) return showToast("Please sign in to add songs to your cart.");
     if (!r.priceCents || r.priceCents < 50) return showToast("Invalid song price.");
 
     try {
-      setPurchaseLoadingId(r.id);
-
-      const res = await fetch("/.netlify/functions/create-checkout", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          itemId: r.id,
+      await addItem(
+        {
+          id: r.id,
           title: r.title,
-          amountCents: r.priceCents,
-          userId,
-        }),
-      });
+          artist: r.artist,
+          price: (r.priceCents || 0) / 100, // CartContext expects ZAR (rands), not cents
+          coverUrl: r.coverUrl || undefined,
+        },
+        1
+      );
 
-      const data = await res.json().catch(() => null);
-
-      if (!res.ok || !data?.redirectUrl) {
-        console.error("Checkout start failed:", data);
-        showToast("Payment failed to start. Check Netlify function + env vars.");
-        setPurchaseLoadingId(null);
-        return;
-      }
-
-      // ✅ Send customer to Yoco hosted checkout
-      window.location.href = data.redirectUrl as string;
-    } catch (err) {
-      console.error(err);
-      showToast("Payment failed to start. Try again.");
-      setPurchaseLoadingId(null);
+      showToast("Added to cart ✅");
+    } catch (e) {
+      console.error(e);
+      showToast("Failed to add to cart. Try again.");
     }
   };
 
@@ -533,7 +524,6 @@ export default function Music() {
               <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
                 {singles.map((r) => {
                   const isOwned = ownedSongIds.has(r.id);
-                  const isBuying = purchaseLoadingId === r.id;
 
                   return (
                     <div key={r.id} className="rounded-2xl bg-black/40 border border-white/10 overflow-hidden">
@@ -573,17 +563,15 @@ export default function Music() {
                               <button
                                 className="flex-1 rounded-xl border border-white/15 bg-white/10 py-2 text-sm font-semibold hover:bg-white/15"
                                 onClick={() => void playSingleDemo(r)}
-                                disabled={isBuying}
                               >
                                 {nowPlayingSingleId === r.id ? "Stop" : `Play demo (${SINGLE_DEMO_SECONDS}s)`}
                               </button>
 
                               <button
-                                className="flex-1 rounded-xl border border-white/15 bg-white/10 py-2 text-sm font-semibold hover:bg-white/15 disabled:opacity-60 disabled:cursor-not-allowed"
-                                onClick={() => void buySongNow(r)}
-                                disabled={isBuying}
+                                className="flex-1 rounded-xl border border-white/15 bg-white/10 py-2 text-sm font-semibold hover:bg-white/15"
+                                onClick={() => void addToCart(r)}
                               >
-                                {isBuying ? "Starting payment…" : "Buy now"}
+                                Add to cart
                               </button>
                             </div>
 
