@@ -1,5 +1,6 @@
 import LandingHero from "../components/home/LandingHero";
 import HomeHighlights from "../components/home/HomeHighlights";
+import TourDemandMap from "../components/home/TourDemandMap";
 import Footer from "../components/layout/Footer";
 
 export default function Home() {
@@ -50,6 +51,7 @@ export default function Home() {
           <LandingHero />
           {/* Opaque section naturally hides background video */}
           <HomeHighlights />
+          <TourDemandMap />
         </main>
 
         <Footer />

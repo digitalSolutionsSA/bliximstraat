@@ -18,6 +18,9 @@ import PurchaseHistory from "./pages/PurchaseHistory";
 import { CartProvider } from "./contexts/CartContext";
 import CartModal from "./components/cart/CartModal";
 
+// ✅ Floating Pin WhatsApp Component
+import PinWhatsApp from "./components/PinWhatsApp";
+
 /* TEMP PLACEHOLDER */
 function Placeholder({ title }: { title: string }) {
   return (
@@ -156,7 +159,6 @@ export default function App() {
           <Route path="/about" element={<About />} />
           <Route path="/lyrics" element={<Lyrics />} />
           <Route path="/bookings" element={<Bookings />} />
-          
 
           <Route path="/profile" element={<Profile />} />
           <Route path="/purchased" element={<PurchasedSongs />} />
@@ -166,6 +168,13 @@ export default function App() {
 
           <Route path="*" element={<Placeholder title="NOT FOUND" />} />
         </Routes>
+
+        {/* ✅ Floating Map-Pin WhatsApp button (global) */}
+        <PinWhatsApp
+          artistName="Storm Sintese"
+          whatsappNumberE164="27821234567"
+          submitEndpoint="/.netlify/functions/booking-signal"
+        />
 
         {/* ✅ Cart overlay mounted once globally */}
         <CartModal />
