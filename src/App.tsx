@@ -19,7 +19,7 @@ import { CartProvider } from "./contexts/CartContext";
 import CartModal from "./components/cart/CartModal";
 
 // ✅ Floating Pin WhatsApp Component
-import PinWhatsApp from "./components/PinWhatsApp";
+import PinWhatsApp from "./components/PinWhatsapp";
 
 // ✅ Cookie / POPIA consent
 import CookieConsent from "./components/CookieConsent";

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 
 type ConsentChoice = "all" | "essential";
 
@@ -42,26 +42,42 @@ export default function CookieConsent({
 
   return (
     <>
-      <div className="cc-overlay" role="dialog" aria-modal="true" aria-label="Cookie consent">
+      <div
+        className="cc-overlay"
+        role="dialog"
+        aria-modal="true"
+        aria-label="Cookie consent"
+      >
         <div className="cc-card">
           <div className="cc-header">
             <div className="cc-title">Cookies & POPIA</div>
-            <button className="cc-x" onClick={() => choose("essential")} aria-label="Close">
+            <button
+              className="cc-x"
+              onClick={() => choose("essential")}
+              aria-label="Close"
+            >
               ✕
             </button>
           </div>
 
           <p className="cc-text">
-            We use essential cookies to keep {brandName} working properly. With your
-            permission, we may also use optional cookies for analytics so we can improve the
-            site and understand demand by region. Your choice is saved in your browser.
+            We use essential cookies to keep {brandName} working properly. With
+            your permission, we may also use optional cookies for analytics so we
+            can improve the site and understand demand by region. Your choice is
+            saved in your browser.
           </p>
 
           <div className="cc-actions">
-            <button className="cc-btn cc-secondary" onClick={() => choose("essential")}>
+            <button
+              className="cc-btn cc-secondary"
+              onClick={() => choose("essential")}
+            >
               Essential only
             </button>
-            <button className="cc-btn cc-primary" onClick={() => choose("all")}>
+            <button
+              className="cc-btn cc-primary"
+              onClick={() => choose("all")}
+            >
               Accept all
             </button>
           </div>

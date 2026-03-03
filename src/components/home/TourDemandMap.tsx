@@ -1,6 +1,26 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ComponentType } from "react";
 import { MapContainer, TileLayer, CircleMarker, Tooltip } from "react-leaflet";
-import type { LatLngExpression } from "leaflet";
+import "leaflet/dist/leaflet.css";
+
+/**
+ * Netlify is Linux + strict TS.
+ * If your react-leaflet / leaflet typings are mismatched, TS can claim
+ * props like center/zoom/radius/direction don't exist.
+ *
+ * These casts make the build robust without changing runtime behavior.
+ */
+const RLMapContainer = MapContainer as unknown as ComponentType<any>;
+const RLTileLayer = TileLayer as unknown as ComponentType<any>;
+const RLCircleMarker = CircleMarker as unknown as ComponentType<any>;
+const RLTooltip = Tooltip as unknown as ComponentType<any>;
+
+/**
+ * Local minimal LatLngExpression type so we don't depend on leaflet's .d.ts
+ * (avoids TS7016 "Could not find a declaration file for module 'leaflet'").
+ */
+type LatLngTuple = [number, number];
+type LatLngLiteral = { lat: number; lng: number };
+type LatLngExpression = LatLngTuple | LatLngLiteral;
 
 type Row = {
   province: string;
@@ -15,7 +35,7 @@ const PROVINCE_COORDS: Record<string, LatLngExpression> = {
   "KwaZulu-Natal": [-29.8587, 31.0218],
   Limpopo: [-23.9045, 29.4689],
   Mpumalanga: [-25.4658, 30.9853],
-  "North West": [-25.6700, 27.2428],
+  "North West": [-25.67, 27.2428],
 };
 
 // tiny helper for “1 person / 2 people”
@@ -97,7 +117,11 @@ export default function TourDemandMap() {
               Tour Demand
             </h2>
             <p className="text-white/60 mt-1">
-              {loading ? "Loading demand signals..." : total === 0 ? "No requests yet. Be the first to pin your city." : "Live requests by province."}
+              {loading
+                ? "Loading demand signals..."
+                : total === 0
+                  ? "No requests yet. Be the first to pin your city."
+                  : "Live requests by province."}
             </p>
           </div>
 
@@ -105,7 +129,9 @@ export default function TourDemandMap() {
           <div className="flex flex-wrap gap-2">
             <div className="rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm text-white">
               <span className="text-white/60 mr-2">Total</span>
-              <span className="font-semibold">{loading ? "…" : peopleLabel(total)}</span>
+              <span className="font-semibold">
+                {loading ? "…" : peopleLabel(total)}
+              </span>
             </div>
             <div className="rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm text-white">
               <span className="text-white/60 mr-2">Provinces</span>
@@ -148,7 +174,7 @@ export default function TourDemandMap() {
 
             {/* Responsive height */}
             <div className="h-[360px] md:h-[440px]">
-              <MapContainer
+              <RLMapContainer
                 center={center}
                 zoom={5}
                 minZoom={4}
@@ -157,17 +183,17 @@ export default function TourDemandMap() {
                 style={{ height: "100%", width: "100%" }}
               >
                 {/* Cleaner tile style than default OSM */}
-                <TileLayer
-                 attribution='&copy; OpenStreetMap contributors &copy; CARTO'
+                <RLTileLayer
+                  attribution="&copy; OpenStreetMap contributors &copy; CARTO"
                   url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
-             />
+                />
 
                 {markers.map((m) => {
                   // size scales with demand
                   const radius = Math.min(26, 7 + Math.sqrt(m.count) * 3);
 
                   return (
-                    <CircleMarker
+                    <RLCircleMarker
                       key={m.province}
                       center={m.coords}
                       radius={radius}
@@ -178,14 +204,16 @@ export default function TourDemandMap() {
                         weight: 2,
                       }}
                     >
-                      <Tooltip direction="top" offset={[0, -6]} opacity={1}>
+                      <RLTooltip direction="top" offset={[0, -6]} opacity={1}>
                         <div style={{ fontWeight: 800 }}>{m.province}</div>
-                        <div style={{ opacity: 0.9 }}>{peopleLabel(m.count)}</div>
-                      </Tooltip>
-                    </CircleMarker>
+                        <div style={{ opacity: 0.9 }}>
+                          {peopleLabel(m.count)}
+                        </div>
+                      </RLTooltip>
+                    </RLCircleMarker>
                   );
                 })}
-              </MapContainer>
+              </RLMapContainer>
             </div>
 
             {/* Empty state overlay */}
@@ -194,7 +222,8 @@ export default function TourDemandMap() {
                 <div className="max-w-md rounded-2xl border border-white/10 bg-black/60 backdrop-blur-md p-5 text-center">
                   <div className="text-white font-semibold">No pins yet</div>
                   <div className="text-white/70 text-sm mt-1">
-                    People can use the map-pin WhatsApp button to submit their town and request a performance.
+                    People can use the map-pin WhatsApp button to submit their
+                    town and request a performance.
                   </div>
                 </div>
               </div>
@@ -203,7 +232,8 @@ export default function TourDemandMap() {
 
           {/* Footer note */}
           <div className="px-5 py-3 border-t border-white/10 text-xs text-white/50">
-            Pins are shown by province area (not exact address). Keeps it simple, safe, and useful for bookings.
+            Pins are shown by province area (not exact address). Keeps it
+            simple, safe, and useful for bookings.
           </div>
         </div>
       </div>
