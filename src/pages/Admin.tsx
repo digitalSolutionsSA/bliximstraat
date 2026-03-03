@@ -59,10 +59,22 @@ type ProductRow = {
   created_at: string;
 };
 
+/**
+ * ✅ FIX: Use this type (so TS doesn't complain it's unused)
+ * and make it match what LyricsPanel actually uses.
+ */
 type LyricRow = {
   id: string;
   song_id: string;
+
+  // UI uses "content" internally (mapped from DB column "lyrics")
   content: string;
+
+  // selected from DB in lyrics query
+  title?: string | null;
+  album?: string | null;
+  year?: string | null;
+
   created_at: string;
   updated_at?: string | null;
 };
@@ -261,9 +273,7 @@ export default function Admin() {
       </div>
     </div>
   );
-}
-
-/* ------------------ UI Bits ------------------ */
+}/* ------------------ UI Bits ------------------ */
 
 function TabButton({
   active,
@@ -865,7 +875,12 @@ function SongsPanel({ onSongsChanged }: { onSongsChanged: () => Promise<void> })
                     <div className="mt-2 text-xs text-white/50">
                       Or paste an album cover URL (optional)
                     </div>
-                    <Field label="" value={newAlbumCoverUrl} onChange={setNewAlbumCoverUrl} placeholder="https://..." />
+                    <Field
+                      label=""
+                      value={newAlbumCoverUrl}
+                      onChange={setNewAlbumCoverUrl}
+                      placeholder="https://..."
+                    />
                   </div>
 
                   <Field
@@ -955,9 +970,7 @@ function SongsPanel({ onSongsChanged }: { onSongsChanged: () => Promise<void> })
       </div>
     </div>
   );
-}
-
-/* ------------------ LYRICS PANEL (FIXED FOR YOUR DB) ------------------ */
+}/* ------------------ LYRICS PANEL (FIXED FOR YOUR DB) ------------------ */
 
 function LyricsPanel({
   songs,
@@ -969,19 +982,11 @@ function LyricsPanel({
   const LYRICS_TABLE = "lyrics";
   const LYRICS_COLUMN = "lyrics"; // ✅ your table uses "lyrics", not "content"
 
-  // If your LyricRow type elsewhere assumes "content", we map into { content: ... } to avoid touching other code.
-  const [items, setItems] = useState<
-    Array<{
-      id: string;
-      song_id: string;
-      content: string;
-      title?: string | null;
-      album?: string | null;
-      year?: string | null;
-      created_at: string;
-      updated_at?: string | null;
-    }>
-  >([]);
+  /**
+   * ✅ FIX: Use LyricRow[] so TS sees LyricRow is actually used.
+   * No UI/layout change.
+   */
+  const [items, setItems] = useState<LyricRow[]>([]);
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -1033,7 +1038,7 @@ function LyricsPanel({
       return;
     }
 
-    const mapped =
+    const mapped: LyricRow[] =
       ((data as any[]) ?? []).map((r) => ({
         id: String(r.id),
         song_id: String(r.song_id),
@@ -1055,11 +1060,7 @@ function LyricsPanel({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const onEdit = (row: {
-    id: string;
-    song_id: string;
-    content: string;
-  }) => {
+  const onEdit = (row: Pick<LyricRow, "id" | "song_id" | "content">) => {
     setEditingId(row.id);
     setSongId(row.song_id);
     setContent(row.content ?? "");
@@ -1276,9 +1277,7 @@ function LyricsPanel({
       </div>
     </div>
   );
-}
-
-/* ------------------ OTHER PANELS ------------------ */
+}/* ------------------ OTHER PANELS ------------------ */
 
 function ShowsPanel() {
   // If your table isn't called "shows", change this:
