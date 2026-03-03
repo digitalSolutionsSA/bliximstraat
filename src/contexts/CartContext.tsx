@@ -53,6 +53,11 @@ type CartContextValue = {
 
   // computed
   subtotalCents: number;
+
+  // ✅ legacy computed + controls used by older UI components
+  // These are aliases only; they do NOT change behavior/layout/workflow.
+  count: number;
+  open: () => void;
 };
 
 const CartContext = createContext<CartContextValue | null>(null);
@@ -136,20 +141,33 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
 
   const increment = (id: string) => {
     setItems((prev) =>
-      prev.map((p) => (p.id === id ? { ...p, qty: Math.min(99, p.qty + 1) } : p))
+      prev.map((p) =>
+        p.id === id ? { ...p, qty: Math.min(99, p.qty + 1) } : p
+      )
     );
   };
 
   const decrement = (id: string) => {
     setItems((prev) =>
-      prev.map((p) => (p.id === id ? { ...p, qty: Math.max(1, p.qty - 1) } : p))
+      prev.map((p) =>
+        p.id === id ? { ...p, qty: Math.max(1, p.qty - 1) } : p
+      )
     );
   };
 
   const clearCart = () => setItems([]);
 
   const subtotalCents = useMemo(() => {
-    return items.reduce((sum, it) => sum + (Number(it.price_cents) || 0) * (Number(it.qty) || 0), 0);
+    return items.reduce(
+      (sum, it) =>
+        sum + (Number(it.price_cents) || 0) * (Number(it.qty) || 0),
+      0
+    );
+  }, [items]);
+
+  // ✅ legacy-friendly count (total quantity, not distinct items)
+  const count = useMemo(() => {
+    return items.reduce((sum, it) => sum + (Number(it.qty) || 0), 0);
   }, [items]);
 
   const value: CartContextValue = {
@@ -168,6 +186,10 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     addToCart: addItem,
     removeFromCart: removeItem,
     subtotalCents,
+
+    // ✅ legacy aliases used by older components
+    count,
+    open: openCart,
   };
 
   return <CartContext.Provider value={value}>{children}</CartContext.Provider>;

@@ -1,10 +1,10 @@
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import Navbar from "../components/layout/Navbar";
 import Footer from "../components/layout/Footer";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../contexts/AuthContext";
 
-type Tab = "songs" | "shows" | "merch" | "lyrics";
+type Tab = "songs" | "shows" | "merch";
 
 /* ------------------ DB TYPES ------------------ */
 
@@ -33,39 +33,6 @@ type AlbumRow = {
   artist: string;
   release_date: string | null;
   cover_url: string | null;
-  created_at: string;
-};
-
-type ShowRow = {
-  id: string;
-  title: string;
-  venue: string;
-  city: string;
-  show_date: string | null; // "YYYY-MM-DD"
-  show_time: string | null; // "HH:MM"
-  is_past: boolean;
-  ticket_url: string | null;
-  created_at: string;
-};
-
-type ProductRow = {
-  id: string;
-  name: string;
-  category: string;
-  price_cents: number;
-  image_url: string | null;
-  note: string | null;
-  is_preorder: boolean;
-  created_at: string;
-};
-
-type LyricRow = {
-  id: string;
-  song_id: string | null;
-  title: string;
-  album: string | null;
-  year: string | null;
-  lyrics: string;
   created_at: string;
 };
 
@@ -172,7 +139,14 @@ export default function Admin() {
     <div className="relative min-h-screen text-white overflow-x-hidden flex flex-col">
       {/* Background */}
       <div className="fixed inset-0 z-0">
-        <video className="h-full w-full object-cover" src="/normal-bg.mp4" autoPlay muted loop playsInline />
+        <video
+          className="h-full w-full object-cover"
+          src="/normal-bg.mp4"
+          autoPlay
+          muted
+          loop
+          playsInline
+        />
         <div className="absolute inset-0 bg-black/45" />
       </div>
 
@@ -187,9 +161,13 @@ export default function Admin() {
               <div>
                 <h1 className="text-4xl md:text-5xl font-black tracking-tight">
                   Admin{" "}
-                  <span className="text-teal-300 drop-shadow-[0_0_18px_rgba(20,184,166,0.35)]">Panel</span>
+                  <span className="text-teal-300 drop-shadow-[0_0_18px_rgba(20,184,166,0.35)]">
+                    Panel
+                  </span>
                 </h1>
-                <p className="mt-2 text-white/70">Add / edit / delete songs, shows, merch and lyrics.</p>
+                <p className="mt-2 text-white/70">
+                  Add / edit / delete songs, shows, merch and lyrics.
+                </p>
               </div>
             </header>
 
@@ -204,9 +182,7 @@ export default function Admin() {
               <TabButton active={tab === "merch"} onClick={() => setTab("merch")}>
                 Merch
               </TabButton>
-              <TabButton active={tab === "lyrics"} onClick={() => setTab("lyrics")}>
-                Lyrics
-              </TabButton>
+             
             </div>
 
             {/* Panels */}
@@ -228,7 +204,7 @@ export default function Admin() {
 
               {tab === "shows" && <ShowsPanel />}
               {tab === "merch" && <MerchPanel />}
-              {tab === "lyrics" && <LyricsPanel songs={songsForLyrics} />}
+             
             </div>
           </div>
         </main>
@@ -237,7 +213,9 @@ export default function Admin() {
       </div>
     </div>
   );
-}/* ------------------ UI Bits ------------------ */
+}
+
+/* ------------------ UI Bits ------------------ */
 
 function TabButton({
   active,
@@ -264,7 +242,15 @@ function TabButton({
   );
 }
 
-function Card({ title, subtitle, children }: { title: string; subtitle?: string; children: ReactNode }) {
+function Card({
+  title,
+  subtitle,
+  children,
+}: {
+  title: string;
+  subtitle?: string;
+  children: ReactNode;
+}) {
   return (
     <div className="rounded-2xl border border-white/10 bg-black/35 backdrop-blur-xl shadow-[0_18px_60px_rgba(0,0,0,0.45)] overflow-hidden">
       <div className="px-6 py-5 border-b border-white/10">
@@ -331,7 +317,9 @@ function Field({
       />
     </div>
   );
-}/* ------------------ SONGS CRUD (Album selector + create new) ------------------ */
+}
+
+/* ------------------ SONGS CRUD (Album selector + create new) ------------------ */
 
 function SongsPanel({ onSongsChanged }: { onSongsChanged: () => Promise<void> }) {
   const [items, setItems] = useState<SongRow[]>([]);
@@ -395,7 +383,9 @@ function SongsPanel({ onSongsChanged }: { onSongsChanged: () => Promise<void> })
     setLoading(true);
     const { data, error } = await supabase
       .from("songs")
-      .select("id,title,artist,release_date,price_cents,cover_url,audio_url,album_id,track_number,created_at,is_active")
+      .select(
+        "id,title,artist,release_date,price_cents,cover_url,audio_url,album_id,track_number,created_at,is_active"
+      )
       .order("created_at", { ascending: false });
 
     if (error) setError(error.message);
@@ -451,7 +441,9 @@ function SongsPanel({ onSongsChanged }: { onSongsChanged: () => Promise<void> })
 
   // ✅ Soft delete actions
   const deactivate = async (id: string) => {
-    const ok = window.confirm("Deactivate this song? It will be hidden from the store (not deleted).");
+    const ok = window.confirm(
+      "Deactivate this song? It will be hidden from the store (not deleted)."
+    );
     if (!ok) return;
 
     const { error } = await supabase.from("songs").update({ is_active: false }).eq("id", id);
@@ -795,7 +787,9 @@ function SongsPanel({ onSongsChanged }: { onSongsChanged: () => Promise<void> })
                       onChange={(e) => setNewAlbumCoverFile(e.target.files?.[0] ?? null)}
                       className="block w-full text-sm text-white/70 file:mr-3 file:rounded-lg file:border file:border-white/15 file:bg-black/30 file:px-3 file:py-1.5 file:text-white/80 hover:file:bg-black/40"
                     />
-                    <div className="mt-2 text-xs text-white/50">Or paste an album cover URL (optional)</div>
+                    <div className="mt-2 text-xs text-white/50">
+                      Or paste an album cover URL (optional)
+                    </div>
                     <Field label="" value={newAlbumCoverUrl} onChange={setNewAlbumCoverUrl} placeholder="https://..." />
                   </div>
 
@@ -886,30 +880,733 @@ function SongsPanel({ onSongsChanged }: { onSongsChanged: () => Promise<void> })
       </div>
     </div>
   );
-}/* ------------------ OTHER PANELS (stubs) ------------------ */
+}
+
+/* ------------------ OTHER PANELS ------------------ */
 
 function ShowsPanel() {
+  // If your table isn't called "shows", change this:
+  const SHOWS_TABLE = "shows";
+
+  const [items, setItems] = useState<ShowRow[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const [editingId, setEditingId] = useState<string | null>(null);
+
+  const [title, setTitle] = useState("");
+  const [venue, setVenue] = useState("");
+  const [city, setCity] = useState("");
+  const [showDate, setShowDate] = useState("");
+  const [showTime, setShowTime] = useState("");
+  const [ticketUrl, setTicketUrl] = useState("");
+  const [isPast, setIsPast] = useState(false);
+
+  const resetForm = () => {
+    setEditingId(null);
+    setTitle("");
+    setVenue("");
+    setCity("");
+    setShowDate("");
+    setShowTime("");
+    setTicketUrl("");
+    setIsPast(false);
+  };
+
+  const load = async () => {
+    setLoading(true);
+    setError(null);
+
+    const { data, error } = await supabase
+      .from(SHOWS_TABLE)
+      .select("id,title,venue,city,show_date,show_time,is_past,ticket_url,created_at")
+      .order("show_date", { ascending: false })
+      .order("created_at", { ascending: false });
+
+    if (error) setError(error.message);
+    setItems((data as ShowRow[]) ?? []);
+    setLoading(false);
+  };
+
+  useEffect(() => {
+    void load();
+  }, []);
+
+  const onEdit = (row: ShowRow) => {
+    setEditingId(row.id);
+    setTitle(row.title ?? "");
+    setVenue(row.venue ?? "");
+    setCity(row.city ?? "");
+    setShowDate(row.show_date ?? "");
+    setShowTime(row.show_time ?? "");
+    setTicketUrl(row.ticket_url ?? "");
+    setIsPast(Boolean(row.is_past));
+    setError(null);
+  };
+
+  const onDelete = async (id: string) => {
+    const ok = window.confirm("Delete this show? This cannot be undone.");
+    if (!ok) return;
+
+    setSaving(true);
+    setError(null);
+    try {
+      const { error } = await supabase.from(SHOWS_TABLE).delete().eq("id", id);
+      if (error) throw new Error(error.message);
+      await load();
+    } catch (e: any) {
+      setError(e?.message ?? "Failed to delete show.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const onSave = async () => {
+    setSaving(true);
+    setError(null);
+
+    try {
+      if (!title.trim()) throw new Error("Title is required.");
+
+      const payload = {
+        title: title.trim(),
+        venue: venue.trim(),
+        city: city.trim(),
+        show_date: showDate ? showDate : null,
+        show_time: showTime ? showTime : null,
+        is_past: Boolean(isPast),
+        ticket_url: ticketUrl.trim() || null,
+      };
+
+      if (editingId) {
+        const { error } = await supabase.from(SHOWS_TABLE).update(payload).eq("id", editingId);
+        if (error) throw new Error(error.message);
+      } else {
+        const { error } = await supabase.from(SHOWS_TABLE).insert(payload);
+        if (error) throw new Error(error.message);
+      }
+
+      await load();
+      resetForm();
+    } catch (e: any) {
+      setError(e?.message ?? "Failed to save show.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
   return (
-    <Card title="Shows" subtitle="Your shows CRUD lives here.">
-      <div className="text-white/60">Shows panel not included in the snippet.</div>
-    </Card>
+    <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+      <div className="lg:col-span-7">
+        <Card title="Shows" subtitle="Add / edit / delete upcoming shows.">
+          {error && (
+            <div className="mb-4 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-200">
+              {error}
+            </div>
+          )}
+
+          {loading ? (
+            <div className="text-white/60">Loading…</div>
+          ) : items.length === 0 ? (
+            <div className="text-white/60">No shows yet.</div>
+          ) : (
+            <div className="space-y-3">
+              {items.map((s) => (
+                <div
+                  key={s.id}
+                  className="rounded-2xl border border-white/10 bg-black/30 p-4 flex items-start justify-between gap-4"
+                >
+                  <div className="min-w-0">
+                    <div className="font-semibold truncate flex items-center gap-2">
+                      <span className="truncate">{s.title}</span>
+                      {s.is_past ? (
+                        <span className="shrink-0 text-[11px] px-2 py-0.5 rounded-full border border-white/15 bg-white/5 text-white/70">
+                          Past
+                        </span>
+                      ) : null}
+                    </div>
+
+                    <div className="text-xs text-white/60">
+                      {[s.venue, s.city].filter(Boolean).join(" • ")}
+                      {s.show_date ? ` • ${s.show_date}` : ""}
+                      {s.show_time ? ` • ${s.show_time}` : ""}
+                    </div>
+
+                    {s.ticket_url ? (
+                      <div className="mt-2 text-xs text-white/45 truncate">Tickets: {s.ticket_url}</div>
+                    ) : null}
+                  </div>
+
+                  <div className="flex gap-2 shrink-0">
+                    <SmallButton onClick={() => onEdit(s)}>Edit</SmallButton>
+                    <SmallButton variant="danger" onClick={() => void onDelete(s.id)} disabled={saving}>
+                      Delete
+                    </SmallButton>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </Card>
+      </div>
+
+      <div className="lg:col-span-5">
+        <Card title={editingId ? "Edit Show" : "Add Show"} subtitle="Keep it simple, keep it accurate.">
+          {error && (
+            <div className="mb-4 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-200">
+              {error}
+            </div>
+          )}
+
+          <div className="space-y-4">
+            <Field label="Title" value={title} onChange={setTitle} placeholder="Live at ___" />
+            <Field label="Venue" value={venue} onChange={setVenue} placeholder="The Venue" />
+            <Field label="City" value={city} onChange={setCity} placeholder="Pretoria" />
+            <Field label="Show date" value={showDate} onChange={setShowDate} type="date" />
+            <Field label="Show time" value={showTime} onChange={setShowTime} type="time" />
+            <Field label="Ticket URL" value={ticketUrl} onChange={setTicketUrl} placeholder="https://..." />
+
+            <ToggleRow
+              label="Mark as past"
+              checked={isPast}
+              onChange={setIsPast}
+              disabled={saving}
+            />
+
+            <div className="flex items-center justify-between pt-1">
+              {editingId ? (
+                <div className="text-xs text-white/55">Editing show: {editingId}</div>
+              ) : (
+                <div className="text-xs text-white/55">Creating a new show</div>
+              )}
+
+              <div className="flex gap-2">
+                {editingId && (
+                  <SmallButton
+                    onClick={() => {
+                      resetForm();
+                      setError(null);
+                    }}
+                    disabled={saving}
+                  >
+                    Cancel edit
+                  </SmallButton>
+                )}
+
+                <SmallButton variant="solid" onClick={() => void onSave()} disabled={saving}>
+                  {saving ? "Saving…" : editingId ? "Save changes" : "Add show"}
+                </SmallButton>
+              </div>
+            </div>
+
+            <div className="pt-2">
+              <SmallButton
+                onClick={() => {
+                  resetForm();
+                  setError(null);
+                }}
+                disabled={saving}
+              >
+                Reset form
+              </SmallButton>
+            </div>
+          </div>
+        </Card>
+      </div>
+    </div>
   );
 }
 
 function MerchPanel() {
+  // If your table isn't called "products", change this:
+  // Common alternatives: "merch", "merch_products"
+  const PRODUCTS_TABLE = "products";
+
+  const [items, setItems] = useState<ProductRow[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const [editingId, setEditingId] = useState<string | null>(null);
+
+  const [name, setName] = useState("");
+  const [category, setCategory] = useState("Merch");
+  const [priceZar, setPriceZar] = useState("0");
+  const [imageUrl, setImageUrl] = useState("");
+  const [note, setNote] = useState("");
+  const [isPreorder, setIsPreorder] = useState(false);
+
+  const resetForm = () => {
+    setEditingId(null);
+    setName("");
+    setCategory("Merch");
+    setPriceZar("0");
+    setImageUrl("");
+    setNote("");
+    setIsPreorder(false);
+  };
+
+  const load = async () => {
+    setLoading(true);
+    setError(null);
+
+    const { data, error } = await supabase
+      .from(PRODUCTS_TABLE)
+      .select("id,name,category,price_cents,image_url,note,is_preorder,created_at")
+      .order("created_at", { ascending: false });
+
+    if (error) setError(error.message);
+    setItems((data as ProductRow[]) ?? []);
+    setLoading(false);
+  };
+
+  useEffect(() => {
+    void load();
+  }, []);
+
+  const onEdit = (row: ProductRow) => {
+    setEditingId(row.id);
+    setName(row.name ?? "");
+    setCategory(row.category ?? "Merch");
+    setPriceZar(String(Math.round((row.price_cents ?? 0) / 100)));
+    setImageUrl(row.image_url ?? "");
+    setNote(row.note ?? "");
+    setIsPreorder(Boolean(row.is_preorder));
+    setError(null);
+  };
+
+  const onDelete = async (id: string) => {
+    const ok = window.confirm("Delete this merch item? This cannot be undone.");
+    if (!ok) return;
+
+    setSaving(true);
+    setError(null);
+    try {
+      const { error } = await supabase.from(PRODUCTS_TABLE).delete().eq("id", id);
+      if (error) throw new Error(error.message);
+      await load();
+    } catch (e: any) {
+      setError(e?.message ?? "Failed to delete merch item.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const onSave = async () => {
+    setSaving(true);
+    setError(null);
+
+    try {
+      if (!name.trim()) throw new Error("Name is required.");
+
+      const payload = {
+        name: name.trim(),
+        category: category.trim() || "Merch",
+        price_cents: toCents(priceZar),
+        image_url: imageUrl.trim() || null,
+        note: note.trim() || null,
+        is_preorder: Boolean(isPreorder),
+      };
+
+      if (editingId) {
+        const { error } = await supabase.from(PRODUCTS_TABLE).update(payload).eq("id", editingId);
+        if (error) throw new Error(error.message);
+      } else {
+        const { error } = await supabase.from(PRODUCTS_TABLE).insert(payload);
+        if (error) throw new Error(error.message);
+      }
+
+      await load();
+      resetForm();
+    } catch (e: any) {
+      setError(e?.message ?? "Failed to save merch item.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
   return (
-    <Card title="Merch" subtitle="Your merch CRUD lives here.">
-      <div className="text-white/60">Merch panel not included in the snippet.</div>
-    </Card>
+    <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+      <div className="lg:col-span-7">
+        <Card title="Merch" subtitle="Manage your merch/products.">
+          {error && (
+            <div className="mb-4 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-200">
+              {error}
+            </div>
+          )}
+
+          {loading ? (
+            <div className="text-white/60">Loading…</div>
+          ) : items.length === 0 ? (
+            <div className="text-white/60">No merch yet.</div>
+          ) : (
+            <div className="space-y-3">
+              {items.map((p) => (
+                <div
+                  key={p.id}
+                  className="rounded-2xl border border-white/10 bg-black/30 p-4 flex items-start justify-between gap-4"
+                >
+                  <div className="min-w-0">
+                    <div className="font-semibold truncate flex items-center gap-2">
+                      <span className="truncate">{p.name}</span>
+                      {p.is_preorder ? (
+                        <span className="shrink-0 text-[11px] px-2 py-0.5 rounded-full border border-white/15 bg-white/5 text-white/70">
+                          Preorder
+                        </span>
+                      ) : null}
+                    </div>
+
+                    <div className="text-xs text-white/60">
+                      {(p.category || "Merch") + " • " + formatZar(p.price_cents)}
+                    </div>
+
+                    {p.image_url ? (
+                      <div className="mt-2 text-xs text-white/45 truncate">Image: {p.image_url}</div>
+                    ) : null}
+                    {p.note ? (
+                      <div className="mt-1 text-xs text-white/45 truncate">Note: {p.note}</div>
+                    ) : null}
+                  </div>
+
+                  <div className="flex gap-2 shrink-0">
+                    <SmallButton onClick={() => onEdit(p)}>Edit</SmallButton>
+                    <SmallButton variant="danger" onClick={() => void onDelete(p.id)} disabled={saving}>
+                      Delete
+                    </SmallButton>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </Card>
+      </div>
+
+      <div className="lg:col-span-5">
+        <Card title={editingId ? "Edit Merch" : "Add Merch"} subtitle="Add a product, keep the pricing clean.">
+          {error && (
+            <div className="mb-4 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-200">
+              {error}
+            </div>
+          )}
+
+          <div className="space-y-4">
+            <Field label="Name" value={name} onChange={setName} placeholder="T-Shirt (Black)" />
+            <Field label="Category" value={category} onChange={setCategory} placeholder="Merch" />
+            <Field label="Price (ZAR)" value={priceZar} onChange={setPriceZar} type="number" />
+            <Field label="Image URL" value={imageUrl} onChange={setImageUrl} placeholder="https://..." />
+            <Field label="Note" value={note} onChange={setNote} placeholder="Optional" />
+
+            <ToggleRow
+              label="Preorder"
+              checked={isPreorder}
+              onChange={setIsPreorder}
+              disabled={saving}
+            />
+
+            <div className="flex items-center justify-between pt-1">
+              {editingId ? (
+                <div className="text-xs text-white/55">Editing merch: {editingId}</div>
+              ) : (
+                <div className="text-xs text-white/55">Creating a new merch item</div>
+              )}
+
+              <div className="flex gap-2">
+                {editingId && (
+                  <SmallButton
+                    onClick={() => {
+                      resetForm();
+                      setError(null);
+                    }}
+                    disabled={saving}
+                  >
+                    Cancel edit
+                  </SmallButton>
+                )}
+
+                <SmallButton variant="solid" onClick={() => void onSave()} disabled={saving}>
+                  {saving ? "Saving…" : editingId ? "Save changes" : "Add merch"}
+                </SmallButton>
+              </div>
+            </div>
+
+            <div className="pt-2">
+              <SmallButton
+                onClick={() => {
+                  resetForm();
+                  setError(null);
+                }}
+                disabled={saving}
+              >
+                Reset form
+              </SmallButton>
+            </div>
+          </div>
+        </Card>
+      </div>
+    </div>
   );
 }
 
 function LyricsPanel({ songs }: { songs: SongRow[] }) {
+  const LYRICS_TABLE = "lyrics";
+
+  const [items, setItems] = useState<LyricRow[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const [editingId, setEditingId] = useState<string | null>(null);
+
+  const [songId, setSongId] = useState<string>("");
+  const [title, setTitle] = useState("");
+  const [album, setAlbum] = useState("");
+  const [year, setYear] = useState("");
+  const [lyrics, setLyrics] = useState("");
+
+  const songsSorted = useMemo(() => {
+    return [...(songs ?? [])].sort((a, b) => (a.title || "").localeCompare(b.title || ""));
+  }, [songs]);
+
+  const resetForm = () => {
+    setEditingId(null);
+    setSongId("");
+    setTitle("");
+    setAlbum("");
+    setYear("");
+    setLyrics("");
+  };
+
+  const load = async () => {
+    setLoading(true);
+    setError(null);
+
+    const { data, error } = await supabase
+      .from(LYRICS_TABLE)
+      .select("id,song_id,title,album,year,lyrics,created_at")
+      .order("created_at", { ascending: false });
+
+    if (error) setError(error.message);
+    setItems((data as LyricRow[]) ?? []);
+    setLoading(false);
+  };
+
+  useEffect(() => {
+    void load();
+  }, []);
+
+  const onEdit = (row: LyricRow) => {
+    setEditingId(row.id);
+    setSongId(row.song_id ?? "");
+    setTitle(row.title ?? "");
+    setAlbum(row.album ?? "");
+    setYear(row.year ?? "");
+    setLyrics(row.lyrics ?? "");
+    setError(null);
+  };
+
+  const onDelete = async (id: string) => {
+    const ok = window.confirm("Delete these lyrics? This cannot be undone.");
+    if (!ok) return;
+
+    setSaving(true);
+    setError(null);
+    try {
+      const { error } = await supabase.from(LYRICS_TABLE).delete().eq("id", id);
+      if (error) throw new Error(error.message);
+      await load();
+    } catch (e: any) {
+      setError(e?.message ?? "Failed to delete lyrics.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const onSave = async () => {
+    setSaving(true);
+    setError(null);
+
+    try {
+      if (!title.trim()) throw new Error("Title is required.");
+      if (!lyrics.trim()) throw new Error("Lyrics are required.");
+
+      const payload = {
+        song_id: songId.trim() || null,
+        title: title.trim(),
+        album: album.trim() || null,
+        year: year.trim() || null,
+        lyrics: lyrics,
+      };
+
+      if (editingId) {
+        const { error } = await supabase.from(LYRICS_TABLE).update(payload).eq("id", editingId);
+        if (error) throw new Error(error.message);
+      } else {
+        const { error } = await supabase.from(LYRICS_TABLE).insert(payload);
+        if (error) throw new Error(error.message);
+      }
+
+      await load();
+      resetForm();
+    } catch (e: any) {
+      setError(e?.message ?? "Failed to save lyrics.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
   return (
-    <Card title="Lyrics" subtitle="Your lyrics CRUD lives here.">
-      <div className="text-white/60">
-        Lyrics panel not included in the snippet. Songs available for linking: {songs.length}
+    <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+      <div className="lg:col-span-7">
+        <Card title="Lyrics" subtitle="Store lyrics and optionally link them to a song.">
+          {error && (
+            <div className="mb-4 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-200">
+              {error}
+            </div>
+          )}
+
+          {loading ? (
+            <div className="text-white/60">Loading…</div>
+          ) : items.length === 0 ? (
+            <div className="text-white/60">No lyrics yet.</div>
+          ) : (
+            <div className="space-y-3">
+              {items.map((l) => (
+                <div
+                  key={l.id}
+                  className="rounded-2xl border border-white/10 bg-black/30 p-4 flex items-start justify-between gap-4"
+                >
+                  <div className="min-w-0">
+                    <div className="font-semibold truncate">{l.title}</div>
+                    <div className="text-xs text-white/60">
+                      {[l.album, l.year].filter(Boolean).join(" • ")}
+                      {l.song_id ? " • Linked" : " • Not linked"}
+                    </div>
+                    <div className="mt-2 text-xs text-white/45 line-clamp-3 whitespace-pre-wrap">
+                      {l.lyrics}
+                    </div>
+                  </div>
+
+                  <div className="flex gap-2 shrink-0">
+                    <SmallButton onClick={() => onEdit(l)}>Edit</SmallButton>
+                    <SmallButton variant="danger" onClick={() => void onDelete(l.id)} disabled={saving}>
+                      Delete
+                    </SmallButton>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </Card>
       </div>
-    </Card>
+
+      <div className="lg:col-span-5">
+        <Card title={editingId ? "Edit Lyrics" : "Add Lyrics"} subtitle="Paste clean lyrics, no weird formatting.">
+          {error && (
+            <div className="mb-4 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-200">
+              {error}
+            </div>
+          )}
+
+          <div className="space-y-4">
+            <div>
+              <label className="block text-xs text-white/60 mb-2">Link to song (optional)</label>
+              <select
+                value={songId}
+                onChange={(e) => setSongId(e.target.value)}
+                className="w-full rounded-2xl border border-white/10 bg-black/40 px-4 py-3 text-white/90 outline-none focus:border-teal-400/40 focus:ring-2 focus:ring-teal-400/15"
+              >
+                <option value="">Not linked</option>
+                {songsSorted.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.title} {s.artist ? `- ${s.artist}` : ""}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <Field label="Title" value={title} onChange={setTitle} placeholder="Song title" />
+            <Field label="Album (optional)" value={album} onChange={setAlbum} placeholder="Album name" />
+            <Field label="Year (optional)" value={year} onChange={setYear} placeholder="2026" />
+
+            <div>
+              <label className="block text-xs text-white/60 mb-2">Lyrics</label>
+              <textarea
+                value={lyrics}
+                onChange={(e) => setLyrics(e.target.value)}
+                rows={10}
+                className="w-full rounded-2xl border border-white/10 bg-black/40 px-4 py-3 text-white/90 placeholder:text-white/40 outline-none focus:border-teal-400/40 focus:ring-2 focus:ring-teal-400/15 whitespace-pre-wrap"
+                placeholder="Paste lyrics here…"
+              />
+            </div>
+
+            <div className="flex items-center justify-between pt-1">
+              {editingId ? (
+                <div className="text-xs text-white/55">Editing lyrics: {editingId}</div>
+              ) : (
+                <div className="text-xs text-white/55">Creating new lyrics</div>
+              )}
+
+              <div className="flex gap-2">
+                {editingId && (
+                  <SmallButton
+                    onClick={() => {
+                      resetForm();
+                      setError(null);
+                    }}
+                    disabled={saving}
+                  >
+                    Cancel edit
+                  </SmallButton>
+                )}
+
+                <SmallButton variant="solid" onClick={() => void onSave()} disabled={saving}>
+                  {saving ? "Saving…" : editingId ? "Save changes" : "Add lyrics"}
+                </SmallButton>
+              </div>
+            </div>
+
+            <div className="pt-2">
+              <SmallButton
+                onClick={() => {
+                  resetForm();
+                  setError(null);
+                }}
+                disabled={saving}
+              >
+                Reset form
+              </SmallButton>
+            </div>
+          </div>
+        </Card>
+      </div>
+    </div>
+  );
+}
+
+/* ------------------ Small helper ------------------ */
+
+function ToggleRow({
+  label,
+  checked,
+  onChange,
+  disabled,
+}: {
+  label: string;
+  checked: boolean;
+  onChange: (v: boolean) => void;
+  disabled?: boolean;
+}) {
+  return (
+    <label className="flex items-center justify-between gap-3 rounded-2xl border border-white/10 bg-black/25 px-4 py-3">
+      <span className="text-sm text-white/80 font-semibold">{label}</span>
+      <input
+        type="checkbox"
+        checked={checked}
+        onChange={(e) => onChange(e.target.checked)}
+        disabled={disabled}
+        className="h-4 w-4 accent-teal-400"
+      />
+    </label>
   );
 }

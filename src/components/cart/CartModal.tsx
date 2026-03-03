@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import { useState } from "react";
 import { X, Trash2, Minus, Plus } from "lucide-react";
 import { supabase } from "../../lib/supabase";
 import { useCart } from "../../contexts/CartContext";
