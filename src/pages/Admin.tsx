@@ -4,7 +4,7 @@ import Footer from "../components/layout/Footer";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../contexts/AuthContext";
 
-type Tab = "songs" | "shows" | "merch";
+type Tab = "songs" | "shows" | "merch" | "lyrics";
 
 /* ------------------ DB TYPES ------------------ */
 
@@ -34,6 +34,37 @@ type AlbumRow = {
   release_date: string | null;
   cover_url: string | null;
   created_at: string;
+};
+
+type ShowRow = {
+  id: string;
+  title: string | null;
+  venue: string | null;
+  city: string | null;
+  show_date: string | null; // date
+  show_time: string | null; // time
+  is_past: boolean | null;
+  ticket_url: string | null;
+  created_at: string;
+};
+
+type ProductRow = {
+  id: string;
+  name: string | null;
+  category: string | null;
+  price_cents: number;
+  image_url: string | null;
+  note: string | null;
+  is_preorder: boolean | null;
+  created_at: string;
+};
+
+type LyricRow = {
+  id: string;
+  song_id: string;
+  content: string;
+  created_at: string;
+  updated_at?: string | null;
 };
 
 const formatZar = (cents: number) =>
@@ -182,7 +213,9 @@ export default function Admin() {
               <TabButton active={tab === "merch"} onClick={() => setTab("merch")}>
                 Merch
               </TabButton>
-             
+              <TabButton active={tab === "lyrics"} onClick={() => setTab("lyrics")}>
+                Lyrics
+              </TabButton>
             </div>
 
             {/* Panels */}
@@ -204,7 +237,22 @@ export default function Admin() {
 
               {tab === "shows" && <ShowsPanel />}
               {tab === "merch" && <MerchPanel />}
-             
+              {tab === "lyrics" && (
+                <LyricsPanel
+                  songs={songsForLyrics}
+                  onLyricsChanged={async () => {
+                    // keep song list fresh in case you renamed songs, etc.
+                    const { data } = await supabase
+                      .from("songs")
+                      .select(
+                        "id,title,artist,release_date,price_cents,cover_url,audio_url,album_id,track_number,created_at,is_active"
+                      )
+                      .order("created_at", { ascending: false });
+
+                    setSongsForLyrics((data as SongRow[]) ?? []);
+                  }}
+                />
+              )}
             </div>
           </div>
         </main>
@@ -314,6 +362,33 @@ function Field({
         placeholder={placeholder}
         type={type}
         className="w-full rounded-2xl border border-white/10 bg-black/40 px-4 py-3 text-white/90 placeholder:text-white/40 outline-none focus:border-teal-400/40 focus:ring-2 focus:ring-teal-400/15"
+      />
+    </div>
+  );
+}
+
+function TextArea({
+  label,
+  value,
+  onChange,
+  placeholder,
+  rows = 12,
+}: {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  placeholder?: string;
+  rows?: number;
+}) {
+  return (
+    <div>
+      {label ? <label className="block text-xs text-white/60 mb-2">{label}</label> : null}
+      <textarea
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder={placeholder}
+        rows={rows}
+        className="w-full rounded-2xl border border-white/10 bg-black/40 px-4 py-3 text-white/90 placeholder:text-white/40 outline-none focus:border-teal-400/40 focus:ring-2 focus:ring-teal-400/15 resize-y"
       />
     </div>
   );
@@ -882,6 +957,327 @@ function SongsPanel({ onSongsChanged }: { onSongsChanged: () => Promise<void> })
   );
 }
 
+/* ------------------ LYRICS PANEL (FIXED FOR YOUR DB) ------------------ */
+
+function LyricsPanel({
+  songs,
+  onLyricsChanged,
+}: {
+  songs: SongRow[];
+  onLyricsChanged: () => Promise<void>;
+}) {
+  const LYRICS_TABLE = "lyrics";
+  const LYRICS_COLUMN = "lyrics"; // ✅ your table uses "lyrics", not "content"
+
+  // If your LyricRow type elsewhere assumes "content", we map into { content: ... } to avoid touching other code.
+  const [items, setItems] = useState<
+    Array<{
+      id: string;
+      song_id: string;
+      content: string;
+      title?: string | null;
+      album?: string | null;
+      year?: string | null;
+      created_at: string;
+      updated_at?: string | null;
+    }>
+  >([]);
+
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const [editingId, setEditingId] = useState<string | null>(null);
+
+  const [songId, setSongId] = useState<string>("");
+  const [content, setContent] = useState<string>("");
+
+  const songTitle = (id: string) => songs.find((s) => s.id === id)?.title ?? "Unknown song";
+
+  const deriveMetaFromSong = (sid: string) => {
+    const s = songs.find((x) => x.id === sid);
+
+    const title = s?.title ?? null;
+
+    // You don't have album title in SongRow, only album_id.
+    // We'll keep your lyrics table consistent:
+    const album = s?.album_id ? "Album" : "Single";
+
+    // year from release_date if possible, else current year
+    let year = "";
+    if (s?.release_date) year = String(s.release_date).slice(0, 4);
+    if (!year) year = String(new Date().getFullYear());
+
+    return { title, album, year };
+  };
+
+  const resetForm = () => {
+    setEditingId(null);
+    setSongId("");
+    setContent("");
+  };
+
+  const load = async () => {
+    setLoading(true);
+    setError(null);
+
+    const { data, error } = await supabase
+      .from(LYRICS_TABLE)
+      .select("id,song_id,title,album,year,lyrics,created_at,updated_at")
+      .order("created_at", { ascending: false });
+
+    if (error) {
+      setError(error.message);
+      setItems([]);
+      setLoading(false);
+      return;
+    }
+
+    const mapped =
+      ((data as any[]) ?? []).map((r) => ({
+        id: String(r.id),
+        song_id: String(r.song_id),
+        // map DB "lyrics" into UI "content" so the rest of your component stays untouched
+        content: String(r[LYRICS_COLUMN] ?? ""),
+        title: r.title ?? null,
+        album: r.album ?? null,
+        year: r.year ?? null,
+        created_at: String(r.created_at),
+        updated_at: r.updated_at ? String(r.updated_at) : null,
+      })) ?? [];
+
+    setItems(mapped);
+    setLoading(false);
+  };
+
+  useEffect(() => {
+    void load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const onEdit = (row: {
+    id: string;
+    song_id: string;
+    content: string;
+  }) => {
+    setEditingId(row.id);
+    setSongId(row.song_id);
+    setContent(row.content ?? "");
+    setError(null);
+  };
+
+  const onDelete = async (id: string) => {
+    const ok = window.confirm("Delete these lyrics? This cannot be undone.");
+    if (!ok) return;
+
+    setSaving(true);
+    setError(null);
+    try {
+      const { error } = await supabase.from(LYRICS_TABLE).delete().eq("id", id);
+      if (error) throw new Error(error.message);
+      await load();
+      await onLyricsChanged();
+      if (editingId === id) resetForm();
+    } catch (e: any) {
+      setError(e?.message ?? "Failed to delete lyrics.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const onSave = async () => {
+    setSaving(true);
+    setError(null);
+
+    try {
+      const cleanSongId = songId.trim();
+      if (!cleanSongId) throw new Error("Please select a song.");
+      if (!content.trim()) throw new Error("Lyrics content is required.");
+
+      const meta = deriveMetaFromSong(cleanSongId);
+
+      const payload: Record<string, any> = {
+        song_id: cleanSongId,
+        // ✅ write into the real DB column:
+        [LYRICS_COLUMN]: content,
+        // ✅ keep these columns populated (your table has them):
+        title: meta.title,
+        album: meta.album,
+        year: meta.year,
+      };
+
+      if (editingId) {
+        const { error } = await supabase.from(LYRICS_TABLE).update(payload).eq("id", editingId);
+        if (error) throw new Error(error.message);
+      } else {
+        const { error } = await supabase.from(LYRICS_TABLE).insert(payload);
+        if (error) throw new Error(error.message);
+      }
+
+      await load();
+      await onLyricsChanged();
+      resetForm();
+    } catch (e: any) {
+      setError(e?.message ?? "Failed to save lyrics.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const quickLoadForSong = (sid: string) => {
+    const existing = items.find((x) => x.song_id === sid);
+    if (existing) {
+      onEdit(existing);
+    } else {
+      setEditingId(null);
+      setSongId(sid);
+      setContent("");
+      setError(null);
+    }
+  };
+
+  return (
+    <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+      <div className="lg:col-span-7">
+        <Card title="Lyrics" subtitle="Link lyrics to a song. Edit, replace, delete. No drama.">
+          {error && (
+            <div className="mb-4 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-200">
+              {error}
+            </div>
+          )}
+
+          {loading ? (
+            <div className="text-white/60">Loading…</div>
+          ) : items.length === 0 ? (
+            <div className="text-white/60">No lyrics yet.</div>
+          ) : (
+            <div className="space-y-3">
+              {items.map((l) => (
+                <div
+                  key={l.id}
+                  className="rounded-2xl border border-white/10 bg-black/30 p-4 flex items-start justify-between gap-4"
+                >
+                  <div className="min-w-0">
+                    <div className="font-semibold truncate">{songTitle(l.song_id)}</div>
+                    <div className="text-xs text-white/60 truncate">
+                      {l.album ? `${l.album}` : "—"}
+                      {l.year ? ` • ${l.year}` : ""}
+                    </div>
+
+                    <div className="mt-2 text-xs text-white/45 line-clamp-3 whitespace-pre-wrap">
+                      {l.content}
+                    </div>
+                  </div>
+
+                  <div className="flex gap-2 shrink-0">
+                    <SmallButton onClick={() => onEdit(l)}>Edit</SmallButton>
+                    <SmallButton
+                      variant="danger"
+                      onClick={() => void onDelete(l.id)}
+                      disabled={saving}
+                    >
+                      Delete
+                    </SmallButton>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </Card>
+      </div>
+
+      <div className="lg:col-span-5">
+        <Card
+          title={editingId ? "Edit Lyrics" : "Add Lyrics"}
+          subtitle="Pick a song, paste lyrics, save. Revolutionary."
+        >
+          {error && (
+            <div className="mb-4 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-200">
+              {error}
+            </div>
+          )}
+
+          <div className="space-y-4">
+            <div className="rounded-2xl border border-white/10 bg-black/25 p-4 space-y-3">
+              <div className="text-sm font-semibold text-white/80">Song</div>
+
+              <div>
+                <label className="block text-xs text-white/60 mb-2">Choose song</label>
+                <select
+                  value={songId}
+                  onChange={(e) => {
+                    const sid = e.target.value;
+                    setSongId(sid);
+                    if (sid) quickLoadForSong(sid);
+                  }}
+                  className="w-full rounded-2xl border border-white/10 bg-black/40 px-4 py-3 text-white/90 outline-none focus:border-teal-400/40 focus:ring-2 focus:ring-teal-400/15"
+                >
+                  <option value="">Select…</option>
+                  {songs.map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {(s.track_number ? `${s.track_number}. ` : "") + s.title}
+                    </option>
+                  ))}
+                </select>
+
+                <div className="mt-2 text-xs text-white/55">
+                  Tip: selecting a song will auto-load existing lyrics (if any) so you can replace them.
+                </div>
+              </div>
+            </div>
+
+            <TextArea
+              label="Lyrics (plain text)"
+              value={content}
+              onChange={setContent}
+              placeholder={"Verse 1\n...\n\nChorus\n..."}
+              rows={14}
+            />
+
+            <div className="flex items-center justify-between pt-1">
+              {editingId ? (
+                <div className="text-xs text-white/55">Editing lyrics: {editingId}</div>
+              ) : (
+                <div className="text-xs text-white/55">Creating new lyrics</div>
+              )}
+
+              <div className="flex gap-2">
+                {editingId && (
+                  <SmallButton
+                    onClick={() => {
+                      resetForm();
+                      setError(null);
+                    }}
+                    disabled={saving}
+                  >
+                    Cancel edit
+                  </SmallButton>
+                )}
+
+                <SmallButton variant="solid" onClick={() => void onSave()} disabled={saving}>
+                  {saving ? "Saving…" : editingId ? "Save changes" : "Add lyrics"}
+                </SmallButton>
+              </div>
+            </div>
+
+            <div className="pt-2">
+              <SmallButton
+                onClick={() => {
+                  resetForm();
+                  setError(null);
+                }}
+                disabled={saving}
+              >
+                Reset form
+              </SmallButton>
+            </div>
+          </div>
+        </Card>
+      </div>
+    </div>
+  );
+}
+
 /* ------------------ OTHER PANELS ------------------ */
 
 function ShowsPanel() {
@@ -1067,12 +1463,7 @@ function ShowsPanel() {
             <Field label="Show time" value={showTime} onChange={setShowTime} type="time" />
             <Field label="Ticket URL" value={ticketUrl} onChange={setTicketUrl} placeholder="https://..." />
 
-            <ToggleRow
-              label="Mark as past"
-              checked={isPast}
-              onChange={setIsPast}
-              disabled={saving}
-            />
+            <ToggleRow label="Mark as past" checked={isPast} onChange={setIsPast} disabled={saving} />
 
             <div className="flex items-center justify-between pt-1">
               {editingId ? (
@@ -1297,12 +1688,7 @@ function MerchPanel() {
             <Field label="Image URL" value={imageUrl} onChange={setImageUrl} placeholder="https://..." />
             <Field label="Note" value={note} onChange={setNote} placeholder="Optional" />
 
-            <ToggleRow
-              label="Preorder"
-              checked={isPreorder}
-              onChange={setIsPreorder}
-              disabled={saving}
-            />
+            <ToggleRow label="Preorder" checked={isPreorder} onChange={setIsPreorder} disabled={saving} />
 
             <div className="flex items-center justify-between pt-1">
               {editingId ? (
@@ -1326,242 +1712,6 @@ function MerchPanel() {
 
                 <SmallButton variant="solid" onClick={() => void onSave()} disabled={saving}>
                   {saving ? "Saving…" : editingId ? "Save changes" : "Add merch"}
-                </SmallButton>
-              </div>
-            </div>
-
-            <div className="pt-2">
-              <SmallButton
-                onClick={() => {
-                  resetForm();
-                  setError(null);
-                }}
-                disabled={saving}
-              >
-                Reset form
-              </SmallButton>
-            </div>
-          </div>
-        </Card>
-      </div>
-    </div>
-  );
-}
-
-function LyricsPanel({ songs }: { songs: SongRow[] }) {
-  const LYRICS_TABLE = "lyrics";
-
-  const [items, setItems] = useState<LyricRow[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  const [editingId, setEditingId] = useState<string | null>(null);
-
-  const [songId, setSongId] = useState<string>("");
-  const [title, setTitle] = useState("");
-  const [album, setAlbum] = useState("");
-  const [year, setYear] = useState("");
-  const [lyrics, setLyrics] = useState("");
-
-  const songsSorted = useMemo(() => {
-    return [...(songs ?? [])].sort((a, b) => (a.title || "").localeCompare(b.title || ""));
-  }, [songs]);
-
-  const resetForm = () => {
-    setEditingId(null);
-    setSongId("");
-    setTitle("");
-    setAlbum("");
-    setYear("");
-    setLyrics("");
-  };
-
-  const load = async () => {
-    setLoading(true);
-    setError(null);
-
-    const { data, error } = await supabase
-      .from(LYRICS_TABLE)
-      .select("id,song_id,title,album,year,lyrics,created_at")
-      .order("created_at", { ascending: false });
-
-    if (error) setError(error.message);
-    setItems((data as LyricRow[]) ?? []);
-    setLoading(false);
-  };
-
-  useEffect(() => {
-    void load();
-  }, []);
-
-  const onEdit = (row: LyricRow) => {
-    setEditingId(row.id);
-    setSongId(row.song_id ?? "");
-    setTitle(row.title ?? "");
-    setAlbum(row.album ?? "");
-    setYear(row.year ?? "");
-    setLyrics(row.lyrics ?? "");
-    setError(null);
-  };
-
-  const onDelete = async (id: string) => {
-    const ok = window.confirm("Delete these lyrics? This cannot be undone.");
-    if (!ok) return;
-
-    setSaving(true);
-    setError(null);
-    try {
-      const { error } = await supabase.from(LYRICS_TABLE).delete().eq("id", id);
-      if (error) throw new Error(error.message);
-      await load();
-    } catch (e: any) {
-      setError(e?.message ?? "Failed to delete lyrics.");
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const onSave = async () => {
-    setSaving(true);
-    setError(null);
-
-    try {
-      if (!title.trim()) throw new Error("Title is required.");
-      if (!lyrics.trim()) throw new Error("Lyrics are required.");
-
-      const payload = {
-        song_id: songId.trim() || null,
-        title: title.trim(),
-        album: album.trim() || null,
-        year: year.trim() || null,
-        lyrics: lyrics,
-      };
-
-      if (editingId) {
-        const { error } = await supabase.from(LYRICS_TABLE).update(payload).eq("id", editingId);
-        if (error) throw new Error(error.message);
-      } else {
-        const { error } = await supabase.from(LYRICS_TABLE).insert(payload);
-        if (error) throw new Error(error.message);
-      }
-
-      await load();
-      resetForm();
-    } catch (e: any) {
-      setError(e?.message ?? "Failed to save lyrics.");
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  return (
-    <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-      <div className="lg:col-span-7">
-        <Card title="Lyrics" subtitle="Store lyrics and optionally link them to a song.">
-          {error && (
-            <div className="mb-4 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-200">
-              {error}
-            </div>
-          )}
-
-          {loading ? (
-            <div className="text-white/60">Loading…</div>
-          ) : items.length === 0 ? (
-            <div className="text-white/60">No lyrics yet.</div>
-          ) : (
-            <div className="space-y-3">
-              {items.map((l) => (
-                <div
-                  key={l.id}
-                  className="rounded-2xl border border-white/10 bg-black/30 p-4 flex items-start justify-between gap-4"
-                >
-                  <div className="min-w-0">
-                    <div className="font-semibold truncate">{l.title}</div>
-                    <div className="text-xs text-white/60">
-                      {[l.album, l.year].filter(Boolean).join(" • ")}
-                      {l.song_id ? " • Linked" : " • Not linked"}
-                    </div>
-                    <div className="mt-2 text-xs text-white/45 line-clamp-3 whitespace-pre-wrap">
-                      {l.lyrics}
-                    </div>
-                  </div>
-
-                  <div className="flex gap-2 shrink-0">
-                    <SmallButton onClick={() => onEdit(l)}>Edit</SmallButton>
-                    <SmallButton variant="danger" onClick={() => void onDelete(l.id)} disabled={saving}>
-                      Delete
-                    </SmallButton>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </Card>
-      </div>
-
-      <div className="lg:col-span-5">
-        <Card title={editingId ? "Edit Lyrics" : "Add Lyrics"} subtitle="Paste clean lyrics, no weird formatting.">
-          {error && (
-            <div className="mb-4 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-200">
-              {error}
-            </div>
-          )}
-
-          <div className="space-y-4">
-            <div>
-              <label className="block text-xs text-white/60 mb-2">Link to song (optional)</label>
-              <select
-                value={songId}
-                onChange={(e) => setSongId(e.target.value)}
-                className="w-full rounded-2xl border border-white/10 bg-black/40 px-4 py-3 text-white/90 outline-none focus:border-teal-400/40 focus:ring-2 focus:ring-teal-400/15"
-              >
-                <option value="">Not linked</option>
-                {songsSorted.map((s) => (
-                  <option key={s.id} value={s.id}>
-                    {s.title} {s.artist ? `- ${s.artist}` : ""}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <Field label="Title" value={title} onChange={setTitle} placeholder="Song title" />
-            <Field label="Album (optional)" value={album} onChange={setAlbum} placeholder="Album name" />
-            <Field label="Year (optional)" value={year} onChange={setYear} placeholder="2026" />
-
-            <div>
-              <label className="block text-xs text-white/60 mb-2">Lyrics</label>
-              <textarea
-                value={lyrics}
-                onChange={(e) => setLyrics(e.target.value)}
-                rows={10}
-                className="w-full rounded-2xl border border-white/10 bg-black/40 px-4 py-3 text-white/90 placeholder:text-white/40 outline-none focus:border-teal-400/40 focus:ring-2 focus:ring-teal-400/15 whitespace-pre-wrap"
-                placeholder="Paste lyrics here…"
-              />
-            </div>
-
-            <div className="flex items-center justify-between pt-1">
-              {editingId ? (
-                <div className="text-xs text-white/55">Editing lyrics: {editingId}</div>
-              ) : (
-                <div className="text-xs text-white/55">Creating new lyrics</div>
-              )}
-
-              <div className="flex gap-2">
-                {editingId && (
-                  <SmallButton
-                    onClick={() => {
-                      resetForm();
-                      setError(null);
-                    }}
-                    disabled={saving}
-                  >
-                    Cancel edit
-                  </SmallButton>
-                )}
-
-                <SmallButton variant="solid" onClick={() => void onSave()} disabled={saving}>
-                  {saving ? "Saving…" : editingId ? "Save changes" : "Add lyrics"}
                 </SmallButton>
               </div>
             </div>
