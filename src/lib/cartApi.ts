@@ -111,3 +111,28 @@ export async function clearCart() {
   const { error } = await supabase.from("cart_items").delete().eq("cart_id", cartId);
   if (error) throw error;
 }
+// --- YOCO CHECKOUT ---
+// This calls your serverless function that creates a Yoco checkout session.
+// IMPORTANT: the function path must match your actual Netlify function name.
+export async function createYocoCheckoutFromCart() {
+  const { cartId, items } = await fetchCartItems();
+
+  const res = await fetch("/.netlify/functions/create-checkout", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ cartId, items }),
+  });
+
+  if (!res.ok) {
+    const msg = await res.text().catch(() => "Checkout failed");
+    throw new Error(msg);
+  }
+
+  const data = (await res.json()) as { checkoutUrl?: string; url?: string };
+
+  // support either key name
+  const url = data.checkoutUrl || data.url;
+  if (!url) throw new Error("Server did not return a checkout URL.");
+
+  return url;
+}

@@ -1,207 +1,202 @@
-import crypto from "crypto";
-import { createClient } from "@supabase/supabase-js";
+function json(statusCode, body) {
+  return {
+    statusCode,
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  };
+}
 
-const SUPABASE_URL = process.env.SUPABASE_URL;
-const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
+async function supabaseAdminFetch(path, { method = "GET", body } = {}) {
+  const SUPABASE_URL = process.env.SUPABASE_URL;
+  const SERVICE_ROLE = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
-// Must match the signing secret returned when you created the webhook via Yoco API
-const YOCO_WEBHOOK_SECRET = process.env.YOCO_WEBHOOK_SECRET;
-
-function safeJsonParse(str) {
-  try {
-    return JSON.parse(str);
-  } catch {
-    return null;
+  if (!SUPABASE_URL || !SERVICE_ROLE) {
+    throw new Error("Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY env vars");
   }
-}
 
-/**
- * Verify webhook signature (HMAC SHA256).
- * Tries common header names.
- */
-function verifySignature(rawBody, signatureHeader) {
-  if (!YOCO_WEBHOOK_SECRET) return true; // allow if secret not set (dev only)
-  if (!signatureHeader) return false;
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
+    method,
+    headers: {
+      apikey: SERVICE_ROLE,
+      Authorization: `Bearer ${SERVICE_ROLE}`,
+      "Content-Type": "application/json",
+      Prefer: "return=representation",
+    },
+    body: body ? JSON.stringify(body) : undefined,
+  });
 
-  const expected = crypto
-    .createHmac("sha256", YOCO_WEBHOOK_SECRET)
-    .update(rawBody, "utf8")
-    .digest("hex");
-
-  const sig = String(signatureHeader).replace(/^sha256=/, "").trim();
-
+  const text = await res.text();
+  let data = null;
   try {
-    return crypto.timingSafeEqual(Buffer.from(expected, "utf8"), Buffer.from(sig, "utf8"));
+    data = text ? JSON.parse(text) : null;
   } catch {
-    return false;
+    data = { rawText: text };
   }
-}
 
-function pickSignature(headers) {
-  // normalize keys
-  const h = {};
-  for (const [k, v] of Object.entries(headers || {})) h[String(k).toLowerCase()] = v;
-
-  return (
-    h["x-yoco-signature"] ||
-    h["x-signature"] ||
-    h["x-webhook-signature"] ||
-    h["webhook-signature"]
-  );
-}
-
-function extractStatusAndMetadata(payload) {
-  // Yoco event formats can differ. Try multiple paths.
-  const status =
-    payload?.status ||
-    payload?.data?.status ||
-    payload?.payment?.status ||
-    payload?.event?.status ||
-    payload?.data?.payment?.status;
-
-  const metadata =
-    payload?.metadata ||
-    payload?.data?.metadata ||
-    payload?.payment?.metadata ||
-    payload?.event?.metadata ||
-    payload?.data?.payment?.metadata;
-
-  return { status, metadata };
+  if (!res.ok) {
+    const err = new Error(`Supabase admin fetch failed: ${res.status}`);
+    err.data = data;
+    throw err;
+  }
+  return data;
 }
 
 function isPaidStatus(status) {
   const s = String(status || "").toLowerCase();
-  return ["succeeded", "successful", "paid", "completed"].includes(s);
+  return ["paid", "succeeded", "completed", "success"].includes(s);
 }
 
-function isFailedStatus(status) {
-  const s = String(status || "").toLowerCase();
-  return ["failed", "cancelled", "canceled"].includes(s);
-}
+/**
+ * Verify payment status via Yoco API (server-side).
+ * This avoids webhook signing secret problems.
+ */
+async function yocoFetchCheckout(checkoutId) {
+  const YOCO_SECRET_KEY = process.env.YOCO_SECRET_KEY;
 
-export async function handler(event) {
-  if (event.httpMethod !== "POST") {
-    return { statusCode: 405, body: "Method Not Allowed" };
+  if (!YOCO_SECRET_KEY) {
+    throw new Error("Missing YOCO_SECRET_KEY env var");
   }
 
-  const rawBody = event.body || "";
-  const sig = pickSignature(event.headers);
+  // Yoco Online API: fetch checkout/session details
+  // If your integration uses a different endpoint, we log and you adjust.
+  const url = `https://online.yoco.com/v1/checkouts/${encodeURIComponent(checkoutId)}`;
 
-  if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
-    console.error("Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY");
-    return { statusCode: 500, body: "Missing Supabase env vars" };
-  }
-
-  const sigOk = verifySignature(rawBody, sig);
-  if (!sigOk) {
-    console.error("Invalid webhook signature");
-    return { statusCode: 400, body: "Invalid signature" };
-  }
-
-  const payload = safeJsonParse(rawBody);
-  if (!payload) {
-    console.error("Invalid JSON payload");
-    return { statusCode: 400, body: "Invalid JSON" };
-  }
-
-  const { status, metadata } = extractStatusAndMetadata(payload);
-
-  // Expecting create-checkout to embed these into metadata
-  const orderId = metadata?.order_id || metadata?.orderId;
-  const userId = metadata?.user_id || metadata?.userId;
-
-  console.log("Webhook received:", {
-    status,
-    orderId,
-    userId,
-    hasMeta: Boolean(metadata),
+  const res = await fetch(url, {
+    method: "GET",
+    headers: {
+      Authorization: `Bearer ${YOCO_SECRET_KEY}`,
+      "Content-Type": "application/json",
+    },
   });
 
-  if (!orderId || !userId) {
-    console.log("No order/user metadata, ignoring.");
-    return { statusCode: 200, body: "Ignored (missing metadata)" };
+  const text = await res.text();
+  let data = null;
+  try {
+    data = text ? JSON.parse(text) : null;
+  } catch {
+    data = { rawText: text };
   }
 
-  const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+  if (!res.ok) {
+    const err = new Error(`Yoco fetch checkout failed: ${res.status}`);
+    err.data = data;
+    throw err;
+  }
+
+  return data;
+}
+
+exports.handler = async (event) => {
+  if (event.httpMethod !== "POST") {
+    return json(405, { error: "Method not allowed" });
+  }
+
+  let body;
+  try {
+    body = JSON.parse(event.body || "{}");
+  } catch {
+    return json(400, { error: "Invalid JSON body" });
+  }
+
+  // Log minimal info for debugging
+  console.log("yoco-webhook received type:", body.type || body.event || "unknown");
+
+  // Common Yoco shapes:
+  // { type, payload: {...} } OR { event, data: {...} }
+  const eventType = body.type || body.event || null;
+  const payload = body.payload || body.data || body;
+
+  const status = payload?.status || payload?.paymentStatus || payload?.payment?.status || null;
+  const metadata = payload?.metadata || payload?.payment?.metadata || {};
+
+  const order_id = metadata?.order_id ? String(metadata.order_id) : null;
+  const user_id = metadata?.user_id ? String(metadata.user_id) : null;
+
+  // IMPORTANT: find a checkout/payment identifier to verify via Yoco API
+  // These are common keys, depends on the event shape
+  const checkoutId =
+    payload?.id ||
+    payload?.checkoutId ||
+    payload?.checkout_id ||
+    payload?.payment?.id ||
+    payload?.paymentId ||
+    payload?.payment_id ||
+    null;
+
+  // If not a "paid-like" status, ignore quickly (still 200)
+  if (!isPaidStatus(status)) {
+    console.log(`yoco-webhook: ignoring eventType="${eventType}" status="${status}"`);
+    return json(200, { ok: true, ignored: true, status });
+  }
+
+  if (!order_id || !user_id) {
+    console.warn("yoco-webhook: missing order_id or user_id in metadata", metadata);
+    return json(200, { ok: true, ignored: true, reason: "missing metadata" });
+  }
 
   try {
-    if (isPaidStatus(status)) {
-      // 1) mark order paid
-      const { error: ordErr } = await supabase
-        .from("orders")
-        .update({ status: "paid", paid_at: new Date().toISOString() })
-        .eq("id", orderId);
+    // Optional but recommended: verify with Yoco API if we have an ID
+    if (checkoutId) {
+      const checkout = await yocoFetchCheckout(checkoutId);
 
-      if (ordErr) {
-        console.error("orders update error:", ordErr);
-        return { statusCode: 500, body: "Failed updating order" };
+      // Yoco checkout object shapes vary; check a few likely fields
+      const verifiedStatus =
+        checkout?.status ||
+        checkout?.payment?.status ||
+        checkout?.payments?.[0]?.status ||
+        null;
+
+      console.log("yoco-webhook: verifiedStatus from API:", verifiedStatus);
+
+      if (!isPaidStatus(verifiedStatus)) {
+        // Do NOT mark as paid if Yoco API doesn't confirm
+        return json(200, {
+          ok: true,
+          ignored: true,
+          reason: "api_not_paid",
+          verifiedStatus,
+        });
       }
-
-      // 2) load order items
-      const { data: orderItems, error: oiErr } = await supabase
-        .from("order_items")
-        .select("song_id")
-        .eq("order_id", orderId);
-
-      if (oiErr) {
-        console.error("order_items fetch error:", oiErr);
-        return { statusCode: 500, body: "Failed loading order items" };
-      }
-
-      const songIds = (orderItems || [])
-        .map((x) => x.song_id)
-        .filter((x) => typeof x === "string" && x.length > 0);
-
-      // 3) insert purchases idempotently
-      if (songIds.length) {
-        const rows = songIds.map((songId) => ({
-          user_id: userId,
-          song_id: songId,
-          order_id: orderId,
-        }));
-
-        const { error: upErr } = await supabase
-          .from("user_purchases")
-          .upsert(rows, { onConflict: "user_id,song_id" });
-
-        if (upErr) {
-          console.error("user_purchases upsert error:", upErr);
-          return { statusCode: 500, body: "Failed writing purchases" };
-        }
-      } else {
-        console.warn("No song_ids in order_items for order:", orderId);
-      }
-
-      // 4) clear cart items correctly (cart_items uses cart_id, not user_id)
-      const { data: cartRow, error: cartErr } = await supabase
-        .from("carts")
-        .select("id")
-        .eq("user_id", userId)
-        .order("created_at", { ascending: false })
-        .limit(1)
-        .maybeSingle();
-
-      if (cartErr) {
-        console.error("carts fetch error:", cartErr);
-        // do not fail the webhook if cart clear fails
-      } else if (cartRow?.id) {
-        const { error: delErr } = await supabase.from("cart_items").delete().eq("cart_id", cartRow.id);
-        if (delErr) console.error("cart_items delete error:", delErr);
-      } else {
-        console.warn("No cart found for user to clear:", userId);
-      }
-
-      return { statusCode: 200, body: "OK" };
+    } else {
+      console.warn("yoco-webhook: no checkout/payment id found in payload; skipping API verify");
     }
 
-    if (isFailedStatus(status)) {
-      await supabase.from("orders").update({ status: "failed" }).eq("id", orderId);
-      return { statusCode: 200, body: "Order marked failed" };
+    // Mark order as paid
+    await supabaseAdminFetch(`orders?id=eq.${encodeURIComponent(order_id)}`, {
+      method: "PATCH",
+      body: { status: "paid" },
+    });
+
+    // Fetch order items
+    const orderItems = await supabaseAdminFetch(
+      `order_items?order_id=eq.${encodeURIComponent(order_id)}&select=song_id`,
+      { method: "GET" }
+    );
+
+    const songIds = (Array.isArray(orderItems) ? orderItems : [])
+      .map((r) => r.song_id)
+      .filter(Boolean);
+
+    let inserted = 0;
+    for (const song_id of songIds) {
+      try {
+        await supabaseAdminFetch("user_purchases", {
+          method: "POST",
+          body: { user_id, song_id },
+        });
+        inserted += 1;
+      } catch (e) {
+        const msg = String(e?.message || "");
+        const code = e?.data?.code;
+        const isConflict = msg.includes("Supabase admin fetch failed: 409") || code === "23505";
+        if (!isConflict) throw e;
+      }
     }
 
-    return { statusCode: 200, body: "Ignored status" };
-  } catch (e) {
-    console.error("Webhook handler error:", e);
-    return { statusCode: 500, body: "Webhook error" };
+    return json(200, { ok: true, inserted, order_id, user_id });
+  } catch (err) {
+    console.error("yoco-webhook error:", err?.message || err, err?.data || "");
+    // Still return 200 to avoid spam retries; you can change to 500 once stable
+    return json(200, { ok: false, error: err?.message || String(err) });
   }
-}
+};

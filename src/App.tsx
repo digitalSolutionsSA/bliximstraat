@@ -135,9 +135,7 @@ export default function App() {
 
     window.addEventListener("bg-video-ready", onReady as EventListener);
 
-    const timeout = window.setTimeout(() => {
-      finish();
-    }, MAX_WAIT_MS);
+    const timeout = window.setTimeout(() => finish(), MAX_WAIT_MS);
 
     return () => {
       window.removeEventListener("bg-video-ready", onReady as EventListener);
@@ -158,6 +156,7 @@ export default function App() {
           <Route path="/about" element={<About />} />
           <Route path="/lyrics" element={<Lyrics />} />
           <Route path="/bookings" element={<Bookings />} />
+          
 
           <Route path="/profile" element={<Profile />} />
           <Route path="/purchased" element={<PurchasedSongs />} />
@@ -168,6 +167,7 @@ export default function App() {
           <Route path="*" element={<Placeholder title="NOT FOUND" />} />
         </Routes>
 
+        {/* ✅ Cart overlay mounted once globally */}
         <CartModal />
       </CartProvider>
     </BrowserRouter>
