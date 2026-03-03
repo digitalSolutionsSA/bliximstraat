@@ -63,7 +63,7 @@ export default function PinWhatsApp({
   // speech bubble visibility (dismissible)
   const [showNudge, setShowNudge] = useState(true);
 
-  // tasteful shake pulse: tiny nudge every ~8s (button also flickers constantly via CSS)
+  // constant attention: subtle flicker (CSS) + tiny shake pulse every ~8s
   const [shakePulse, setShakePulse] = useState(false);
   useEffect(() => {
     const interval = setInterval(() => {
@@ -179,8 +179,10 @@ export default function PinWhatsApp({
               fill="currentColor"
               opacity="0.95"
             />
-            <circle cx="12" cy="10" r="2.7" fill="#0b0f18" opacity="0.95" />
-            <circle cx="12" cy="10" r="1.45" fill="#ffffff" opacity="0.95" />
+            {/* inner ring to match logo cream + outline */}
+            <circle cx="12" cy="10" r="2.85" fill="var(--blix-ink)" opacity="0.95" />
+            <circle cx="12" cy="10" r="2.05" fill="var(--blix-cream)" opacity="0.95" />
+            <circle cx="12" cy="10" r="1.15" fill="var(--blix-ink)" opacity="0.95" />
           </svg>
         </button>
       </div>
@@ -343,15 +345,14 @@ export default function PinWhatsApp({
 
       <style>{`
         :root{
-          --blix-bg: #0b0f18;
-          --blix-panel: rgba(10,14,22,0.92);
-          --blix-border: rgba(140,190,255,0.18);
-          --blix-text: rgba(255,255,255,0.92);
-          --blix-muted: rgba(255,255,255,0.68);
-          --blix-cyan: #49d7ff;
-          --blix-blue: #2a74ff;
-          --blix-glow: rgba(73,215,255,0.22);
-          --blix-glow-strong: rgba(42,116,255,0.25);
+          /* Logo palette approximation */
+          --blix-ink: #081a24;      /* dark outline / shadow */
+          --blix-ink2: #0b2a33;     /* deeper panel */
+          --blix-teal: #2fb6c6;     /* cassette teal */
+          --blix-teal2: #1d7e92;    /* darker teal */
+          --blix-cream: #f2dfb0;    /* logo text fill */
+          --blix-cream2: #e6cd8e;   /* warmer cream */
+          --blix-border: rgba(47,182,198,0.28);
         }
 
         /* wrapper so we can attach a nudge bubble */
@@ -369,13 +370,15 @@ export default function PinWhatsApp({
         /* Nudge bubble */
         .pin-nudge{
           position: relative;
-          max-width: 240px;
-          background: rgba(8,12,20,0.88);
-          border: 1px solid rgba(73,215,255,0.20);
+          max-width: 255px;
+          background: rgba(8,26,36,0.90);
+          border: 2px solid rgba(0,0,0,0.45);
+          box-shadow:
+            0 18px 48px rgba(0,0,0,0.45),
+            0 0 0 1px rgba(47,182,198,0.18) inset;
           color: rgba(255,255,255,0.92);
           border-radius: 14px;
           padding: 10px 12px;
-          box-shadow: 0 18px 48px rgba(0,0,0,0.45);
           backdrop-filter: blur(10px);
           animation: nudgeFloat 2.6s ease-in-out infinite;
         }
@@ -386,8 +389,10 @@ export default function PinWhatsApp({
         .pin-nudge-text{
           font-size: 12.5px;
           line-height: 1.25rem;
-          font-weight: 600;
-          letter-spacing: 0.01em;
+          font-weight: 800;
+          letter-spacing: 0.02em;
+          color: var(--blix-cream);
+          text-shadow: 0 2px 0 rgba(0,0,0,0.45);
         }
         .pin-nudge-close{
           position: absolute;
@@ -400,17 +405,18 @@ export default function PinWhatsApp({
           font-size: 14px;
           line-height: 1;
         }
-        .pin-nudge-close:hover{ color: rgba(255,255,255,0.9); }
+        .pin-nudge-close:hover{ color: rgba(255,255,255,0.92); }
         .pin-nudge-arrow{
           position: absolute;
           right: 18px;
-          bottom: -8px;
+          bottom: -9px;
           width: 14px;
           height: 14px;
-          background: rgba(8,12,20,0.88);
-          border-right: 1px solid rgba(73,215,255,0.20);
-          border-bottom: 1px solid rgba(73,215,255,0.20);
+          background: rgba(8,26,36,0.90);
+          border-right: 2px solid rgba(0,0,0,0.45);
+          border-bottom: 2px solid rgba(0,0,0,0.45);
           transform: rotate(45deg);
+          box-shadow: 0 0 0 1px rgba(47,182,198,0.10) inset;
         }
 
         /* Floating button */
@@ -418,20 +424,21 @@ export default function PinWhatsApp({
           width: 56px;
           height: 56px;
           border-radius: 999px;
-          border: 1px solid rgba(73,215,255,0.25);
+          border: 2px solid rgba(0,0,0,0.55);
           cursor: pointer;
           display:flex;
           align-items:center;
           justify-content:center;
 
+          /* cassette teal gradient */
           background:
-            radial-gradient(circle at 30% 20%, rgba(73,215,255,0.35), transparent 45%),
-            linear-gradient(135deg, rgba(73,215,255,0.95), rgba(42,116,255,0.95));
-          color: rgba(6,10,18,0.92);
+            radial-gradient(circle at 30% 25%, rgba(255,255,255,0.18), transparent 45%),
+            linear-gradient(135deg, var(--blix-teal), var(--blix-teal2));
+          color: var(--blix-cream);
 
           box-shadow:
-            0 14px 30px rgba(0,0,0,0.35),
-            0 0 0 6px rgba(73,215,255,0.08);
+            0 14px 28px rgba(0,0,0,0.38),
+            0 0 0 6px rgba(47,182,198,0.10);
           transition: transform 120ms ease, box-shadow 120ms ease, filter 120ms ease;
 
           /* constant subtle flicker */
@@ -442,16 +449,31 @@ export default function PinWhatsApp({
           transform: translateY(-1px);
           filter: saturate(1.05);
           box-shadow:
-            0 16px 34px rgba(0,0,0,0.40),
-            0 0 0 7px rgba(73,215,255,0.10);
+            0 16px 34px rgba(0,0,0,0.42),
+            0 0 0 7px rgba(47,182,198,0.12);
         }
 
         @keyframes pinFlicker{
-          0%{ box-shadow: 0 14px 30px rgba(0,0,0,0.35), 0 0 0 6px rgba(73,215,255,0.07); filter: brightness(1); }
-          35%{ box-shadow: 0 16px 34px rgba(0,0,0,0.38), 0 0 0 6px rgba(73,215,255,0.11); filter: brightness(1.03); }
-          55%{ box-shadow: 0 12px 26px rgba(0,0,0,0.32), 0 0 0 6px rgba(73,215,255,0.06); filter: brightness(0.98); }
-          78%{ box-shadow: 0 18px 40px rgba(0,0,0,0.42), 0 0 0 7px rgba(42,116,255,0.12); filter: brightness(1.05); }
-          100%{ box-shadow: 0 14px 30px rgba(0,0,0,0.35), 0 0 0 6px rgba(73,215,255,0.07); filter: brightness(1); }
+          0%{
+            box-shadow: 0 14px 28px rgba(0,0,0,0.38), 0 0 0 6px rgba(47,182,198,0.09);
+            filter: brightness(1);
+          }
+          35%{
+            box-shadow: 0 16px 32px rgba(0,0,0,0.42), 0 0 0 6px rgba(47,182,198,0.14);
+            filter: brightness(1.04);
+          }
+          55%{
+            box-shadow: 0 12px 24px rgba(0,0,0,0.34), 0 0 0 6px rgba(47,182,198,0.08);
+            filter: brightness(0.98);
+          }
+          78%{
+            box-shadow: 0 18px 36px rgba(0,0,0,0.48), 0 0 0 7px rgba(242,223,176,0.10);
+            filter: brightness(1.05);
+          }
+          100%{
+            box-shadow: 0 14px 28px rgba(0,0,0,0.38), 0 0 0 6px rgba(47,182,198,0.09);
+            filter: brightness(1);
+          }
         }
 
         .pin-shake{ animation: pinShake 0.65s ease-in-out; }
@@ -477,15 +499,15 @@ export default function PinWhatsApp({
         }
 
         .pin-modal{
-          width: min(580px, 100%);
-          background: var(--blix-panel);
-          color: var(--blix-text);
+          width: min(600px, 100%);
+          background: rgba(8,26,36,0.92);
+          color: rgba(255,255,255,0.92);
           border-radius: 18px;
           padding: 16px;
-          border: 1px solid var(--blix-border);
+          border: 2px solid rgba(0,0,0,0.55);
           box-shadow:
             0 24px 70px rgba(0,0,0,0.55),
-            0 0 0 1px rgba(255,255,255,0.04) inset;
+            0 0 0 1px rgba(47,182,198,0.16) inset;
           backdrop-filter: blur(10px);
         }
 
@@ -498,10 +520,16 @@ export default function PinWhatsApp({
         }
         .pin-title{
           font-size: 18px;
-          font-weight: 800;
+          font-weight: 900;
           letter-spacing: 0.02em;
+          color: var(--blix-cream);
+          text-shadow: 0 2px 0 rgba(0,0,0,0.45);
         }
-        .pin-sub{ font-size: 13px; color: var(--blix-muted); margin-top: 4px; }
+        .pin-sub{
+          font-size: 13px;
+          color: rgba(255,255,255,0.75);
+          margin-top: 4px;
+        }
 
         .pin-close{
           border:none;
@@ -525,46 +553,42 @@ export default function PinWhatsApp({
           flex-direction:column;
           gap: 6px;
           font-size: 12px;
-          color: rgba(255,255,255,0.82);
+          color: rgba(255,255,255,0.86);
         }
 
         .pin-input{
           background: rgba(255,255,255,0.06);
-          border: 1px solid rgba(140,190,255,0.16);
+          border: 1px solid rgba(47,182,198,0.22);
           border-radius: 12px;
           padding: 10px 12px;
           color: rgba(255,255,255,0.92);
           outline: none;
         }
-
         .pin-input::placeholder{
           color: rgba(255,255,255,0.45);
         }
-
         .pin-input:focus{
-          border-color: rgba(73,215,255,0.55);
-          box-shadow: 0 0 0 3px rgba(73,215,255,0.16);
+          border-color: rgba(242,223,176,0.55);
+          box-shadow: 0 0 0 3px rgba(242,223,176,0.15);
         }
 
-        /* make dropdown readable everywhere */
+        /* dropdown readability everywhere */
         .pin-select{
           appearance: none;
           -webkit-appearance: none;
           -moz-appearance: none;
           padding-right: 40px;
           background-image:
-            linear-gradient(45deg, transparent 50%, rgba(255,255,255,0.75) 50%),
-            linear-gradient(135deg, rgba(255,255,255,0.75) 50%, transparent 50%);
+            linear-gradient(45deg, transparent 50%, rgba(242,223,176,0.95) 50%),
+            linear-gradient(135deg, rgba(242,223,176,0.95) 50%, transparent 50%);
           background-position:
             calc(100% - 18px) calc(50% - 2px),
             calc(100% - 12px) calc(50% - 2px);
           background-size: 6px 6px, 6px 6px;
           background-repeat: no-repeat;
         }
-
-        /* The dropdown list itself (browser-dependent, but this helps a lot) */
         .pin-select option{
-          background: #0b0f18;
+          background: #071821;
           color: rgba(255,255,255,0.95);
         }
 
@@ -583,13 +607,12 @@ export default function PinWhatsApp({
           align-items:center;
           gap: 8px;
           font-size: 13px;
-          color: rgba(255,255,255,0.88);
+          color: rgba(255,255,255,0.90);
         }
-
         .pin-check input{
           width: 16px;
           height: 16px;
-          accent-color: var(--blix-cyan);
+          accent-color: var(--blix-teal);
         }
 
         .pin-actions{
@@ -604,10 +627,9 @@ export default function PinWhatsApp({
           border-radius: 12px;
           padding: 10px 14px;
           cursor: pointer;
-          font-weight: 800;
+          font-weight: 900;
           letter-spacing: 0.01em;
         }
-
         .pin-btn:disabled{ opacity: 0.55; cursor: not-allowed; }
 
         .pin-secondary{
@@ -619,14 +641,15 @@ export default function PinWhatsApp({
 
         .pin-primary{
           background:
-            radial-gradient(circle at 25% 20%, rgba(73,215,255,0.35), transparent 45%),
-            linear-gradient(135deg, rgba(73,215,255,0.95), rgba(42,116,255,0.95));
-          color: rgba(6,10,18,0.92);
-          box-shadow: 0 10px 22px rgba(0,0,0,0.25), 0 0 0 4px rgba(73,215,255,0.10);
+            radial-gradient(circle at 25% 20%, rgba(255,255,255,0.18), transparent 45%),
+            linear-gradient(135deg, var(--blix-teal), var(--blix-teal2));
+          color: var(--blix-ink);
+          border: 2px solid rgba(0,0,0,0.45);
+          box-shadow: 0 10px 22px rgba(0,0,0,0.25), 0 0 0 4px rgba(47,182,198,0.10);
         }
         .pin-primary:hover{
           filter: brightness(1.03);
-          box-shadow: 0 12px 28px rgba(0,0,0,0.28), 0 0 0 5px rgba(73,215,255,0.12);
+          box-shadow: 0 12px 28px rgba(0,0,0,0.28), 0 0 0 5px rgba(47,182,198,0.12);
         }
 
         .pin-error{
@@ -642,8 +665,8 @@ export default function PinWhatsApp({
         .pin-success{
           margin-top: 6px;
           padding: 12px;
-          background: rgba(73,215,255,0.10);
-          border: 1px solid rgba(73,215,255,0.22);
+          background: rgba(47,182,198,0.10);
+          border: 1px solid rgba(47,182,198,0.24);
           border-radius: 12px;
           font-size: 14px;
           color: rgba(255,255,255,0.92);

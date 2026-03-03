@@ -11,11 +11,26 @@ const navLinks = [
 ];
 
 const socialLinks = [
-  { label: "Instagram", href: "https://www.instagram.com/blixim_straat?utm_source=ig_web_button_share_sheet&igsh=ZDNlZDc0MzIxNw==" },
-  { label: "TikTok", href: "https://www.tiktok.com/@bliximstraat?is_from_webapp=1&sender_device=pc" },
-  { label: "YouTube", href: "http://www.youtube.com/channel/UCaRgHj3J8RjDuS_eyZXdepA" },
-  { label: "Spotify", href: "https://open.spotify.com/artist/0Ch8nVFZCWFF95IXTcgLgT?si=_XGxnXrjQ_CSVaxPAoNxNA" },
-  { label: "Apple Music", href: "https://music.apple.com/us/artist/blixim-straat/1761419580" },
+  {
+    label: "Instagram",
+    href: "https://www.instagram.com/blixim_straat?utm_source=ig_web_button_share_sheet&igsh=ZDNlZDc0MzIxNw==",
+  },
+  {
+    label: "TikTok",
+    href: "https://www.tiktok.com/@bliximstraat?is_from_webapp=1&sender_device=pc",
+  },
+  {
+    label: "YouTube",
+    href: "http://www.youtube.com/channel/UCaRgHj3J8RjDuS_eyZXdepA",
+  },
+  {
+    label: "Spotify",
+    href: "https://open.spotify.com/artist/0Ch8nVFZCWFF95IXTcgLgT?si=_XGxnXrjQ_CSVaxPAoNxNA",
+  },
+  {
+    label: "Apple Music",
+    href: "https://music.apple.com/us/artist/blixim-straat/1761419580",
+  },
 ];
 
 export default function Footer() {
@@ -129,9 +144,16 @@ export default function Footer() {
           <p className="text-xs text-white/55">
             © {new Date().getFullYear()} Bliximstraat. All rights reserved.
           </p>
-          <p className="text-xs text-white/45">
-            Built loud. Shipped clean.
-          </p>
+
+          <a
+            href="https://www.digitalsolutionssa.co.za"
+            target="_blank"
+            rel="noreferrer"
+            className="text-xs text-white/55 hover:text-white transition underline decoration-white/20 hover:decoration-white/60 underline-offset-4"
+            aria-label="Site proudly built by Digital Solutions SA. Click for more."
+          >
+            Site proudly built by Digital Solutions SA. Click for more.
+          </a>
         </div>
       </div>
     </footer>

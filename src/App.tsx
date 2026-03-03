@@ -21,6 +21,9 @@ import CartModal from "./components/cart/CartModal";
 // ✅ Floating Pin WhatsApp Component
 import PinWhatsApp from "./components/PinWhatsApp";
 
+// ✅ Cookie / POPIA consent
+import CookieConsent from "./components/CookieConsent";
+
 /* TEMP PLACEHOLDER */
 function Placeholder({ title }: { title: string }) {
   return (
@@ -109,13 +112,30 @@ function BootLoader({ show }: { show: boolean }) {
    APP
    ============================ */
 export default function App() {
-  const [booting, setBooting] = useState(() => {
-    // DEV: always show loader so you can see it
-    if (import.meta.env.DEV) return true;
+  // Netlify-safe: do NOT read sessionStorage in the initial render.
+  // Start booting true, then decide in useEffect.
+  const [booting, setBooting] = useState(true);
 
-    // PROD: once per tab
-    return sessionStorage.getItem("bgVideoReady") !== "1";
-  });
+  useEffect(() => {
+    // DEV: always show loader so you can see it
+    if (import.meta.env.DEV) {
+      setBooting(true);
+      return;
+    }
+
+    try {
+      // PROD: once per tab
+      const alreadyReady =
+        typeof window !== "undefined" &&
+        typeof sessionStorage !== "undefined" &&
+        sessionStorage.getItem("bgVideoReady") === "1";
+
+      setBooting(!alreadyReady);
+    } catch {
+      // If storage is blocked, just show loader once
+      setBooting(true);
+    }
+  }, []);
 
   useEffect(() => {
     if (!booting) return;
@@ -129,7 +149,11 @@ export default function App() {
       const remaining = Math.max(0, MIN_SHOW_MS - elapsed);
 
       window.setTimeout(() => {
-        sessionStorage.setItem("bgVideoReady", "1");
+        try {
+          sessionStorage.setItem("bgVideoReady", "1");
+        } catch {
+          // ignore
+        }
         setBooting(false);
       }, remaining);
     };
@@ -150,6 +174,9 @@ export default function App() {
     <BrowserRouter>
       <CartProvider>
         <BootLoader show={booting} />
+
+        {/* ✅ Cookie / POPIA consent (first visit only) */}
+        <CookieConsent privacyPath="/privacy" brandName="BliximStraat" />
 
         <Routes>
           <Route path="/" element={<Home />} />
