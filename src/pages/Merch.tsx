@@ -187,7 +187,6 @@ export default function Merch() {
 
   return (
     <div className="relative min-h-screen text-white overflow-x-hidden flex flex-col">
-
       {/* VIDEO BACKGROUND */}
       <div className="fixed inset-0 z-0 pointer-events-none">
         <video
@@ -196,7 +195,9 @@ export default function Merch() {
           loop
           playsInline
           preload="auto"
-          className="h-full w-full object-cover"
+          disablePictureInPicture
+          poster="/normal-bg-poster.jpg"
+          className="h-full w-full object-cover pointer-events-none select-none"
         >
           <source src="/normal-bg.webm" type="video/webm" />
           <source src="/normal-bg.mp4" type="video/mp4" />
@@ -206,15 +207,12 @@ export default function Merch() {
       </div>
 
       <div className="relative z-10 flex flex-col min-h-screen">
-
         <Navbar />
 
         <main className="flex-1">
-
           {/* HEADER */}
           <section className="pt-28 pb-10 px-6">
             <div className="max-w-6xl mx-auto">
-
               <motion.div
                 initial={{ opacity: 0, y: 14 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -227,18 +225,28 @@ export default function Merch() {
                   </h1>
 
                   <p className="mt-3 text-white/70 max-w-2xl">
-                    Orders are currently only processed via WhatsApp.
+                    Orders are currently only processed via WhatsApp, but we keep
+                    this page updated with all available products and details.
+                    Browse around, pick your favourites, and tap to order via
+                    WhatsApp. We’ll confirm stock and total before you commit.
+                    <span className="text-white/50">
+                      {" "}
+                      Yes, humans still buy physical things.
+                    </span>
                   </p>
                 </div>
 
-                <a
-                  href={`https://wa.me/${whatsappNumber}`}
-                  className="inline-flex items-center gap-2 rounded-xl border border-white/15 bg-white/5 px-4 py-2 text-sm hover:bg-white/10 transition"
-                >
-                  <MessageCircle className="h-4 w-4" />
-                  WhatsApp Order
-                </a>
-
+                <div className="flex gap-3">
+                  <a
+                    href={`https://wa.me/${whatsappNumber}?text=${encodeURIComponent(
+                      "Hi! I want to order merch from Bliximstraat."
+                    )}`}
+                    className="inline-flex items-center gap-2 rounded-xl border border-white/15 bg-white/5 px-4 py-2 text-sm hover:bg-white/10 transition"
+                  >
+                    <MessageCircle className="h-4 w-4" />
+                    WhatsApp Order
+                  </a>
+                </div>
               </motion.div>
 
               {/* CATEGORIES */}
@@ -252,39 +260,62 @@ export default function Merch() {
                   </span>
                 ))}
               </div>
-
             </div>
           </section>
 
           {/* NEW MERCH COMING SOON BANNER */}
-          <section className="px-6 pb-10">
+          <section className="px-6 pb-8">
             <div className="max-w-6xl mx-auto">
-
               <motion.div
-                initial={{ opacity: 0, scale: 0.95 }}
-                whileInView={{ opacity: 1, scale: 1 }}
+                initial={{ opacity: 0, y: 18 }}
+                whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
                 transition={{ duration: 0.4 }}
-                className="rounded-3xl border border-white/20 bg-white/10 backdrop-blur-md py-12 px-6 text-center"
+                className="rounded-3xl border border-white/15 bg-gradient-to-r from-white/10 via-white/5 to-white/10 backdrop-blur-md px-6 py-8 md:px-10 md:py-10 text-center"
               >
+                <div className="text-xs md:text-sm uppercase tracking-[0.35em] text-white/55 font-semibold">
+                  Bliximstraat Drop
+                </div>
 
-                <h2 className="text-4xl md:text-5xl font-extrabold tracking-tight">
-                  NEW MERCH COMING SOON
+                <h2 className="mt-3 text-3xl md:text-5xl font-extrabold tracking-tight text-white">
+                  NEW MERCH COMING SOON!!
                 </h2>
 
-                <p className="text-white/70 mt-3 max-w-xl mx-auto">
-                  We're cooking up fresh Bliximstraat gear. Stay tuned.
+                <p className="mt-3 text-sm md:text-base text-white/70 max-w-2xl mx-auto">
+                  Fresh pieces are on the way. Keep an eye on this page and hit
+                  us on WhatsApp if you want first dibs before the next drop
+                  disappears into the chaos.
                 </p>
-
               </motion.div>
+            </div>
+          </section>
 
+          {/* ERRORS / EMPTY / LOADING */}
+          <section className="px-6 pb-6">
+            <div className="max-w-6xl mx-auto">
+              {loading && (
+                <div className="rounded-2xl border border-white/10 bg-black/35 backdrop-blur-sm p-6 text-white/70">
+                  Loading merch...
+                </div>
+              )}
+
+              {error && (
+                <div className="rounded-2xl border border-red-500/30 bg-red-500/10 px-5 py-4 text-sm text-red-200">
+                  Failed to load merch: {error}
+                </div>
+              )}
+
+              {!loading && !error && products.length === 0 && (
+                <div className="rounded-2xl border border-white/10 bg-black/35 backdrop-blur-sm p-6 text-white/70">
+                  No merch products yet. Add some in the Admin panel.
+                </div>
+              )}
             </div>
           </section>
 
           {/* PRODUCTS */}
           <section className="px-6 pb-24">
             <div className="max-w-6xl mx-auto grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-
               {products.map((p, i) => (
                 <motion.button
                   key={p.id}
@@ -294,44 +325,179 @@ export default function Merch() {
                   viewport={{ once: true }}
                   transition={{ duration: 0.35, delay: i * 0.03 }}
                   onClick={() => openModal(p)}
-                  className="text-left rounded-2xl border border-white/10 bg-black/35 overflow-hidden backdrop-blur-sm flex flex-col"
+                  className="text-left rounded-2xl border border-white/10 bg-black/35 overflow-hidden backdrop-blur-sm flex flex-col hover:border-white/20 hover:bg-black/40 transition"
                 >
-
                   <div className="relative aspect-square">
                     <img
                       src={p.imageUrl}
                       alt={p.name}
                       className="h-full w-full object-cover"
+                      loading="lazy"
                     />
+                    {p.isPreorder && (
+                      <span className="absolute left-3 top-3 rounded-full border border-white/20 bg-black/50 px-3 py-1 text-xs text-white/80 backdrop-blur">
+                        Preorder
+                      </span>
+                    )}
                   </div>
 
-                  <div className="p-5">
+                  <div className="p-5 flex flex-col flex-1">
+                    <div>
+                      <h3 className="font-semibold text-lg leading-tight">
+                        {p.name}
+                      </h3>
 
-                    <h3 className="font-semibold text-lg">
-                      {p.name}
-                    </h3>
+                      <p className="text-xs text-white/60 mt-1">{p.category}</p>
 
-                    <p className="text-xs text-white/60 mt-1">
-                      {p.category}
-                    </p>
+                      <div className="mt-2 text-xl font-bold text-white tracking-tight">
+                        {formatZar(p.priceCents)}
+                      </div>
 
-                    <div className="mt-2 text-xl font-bold">
-                      {formatZar(p.priceCents)}
+                      <div className="text-xs text-white/50 mt-1">
+                        Tap to order
+                      </div>
                     </div>
 
-                  </div>
+                    <div className="mt-3 min-h-[24px]">
+                      {p.note ? (
+                        <p className="text-sm text-white/70">{p.note}</p>
+                      ) : (
+                        <p className="text-sm text-transparent select-none">
+                          placeholder
+                        </p>
+                      )}
+                    </div>
 
+                    <div className="mt-auto pt-5">
+                      <div className="inline-flex items-center gap-2 rounded-xl border border-white/15 bg-white/5 px-4 py-2 text-sm hover:bg-white/10 transition">
+                        <ShoppingBag className="h-4 w-4" />
+                        Order via WhatsApp
+                      </div>
+                    </div>
+                  </div>
                 </motion.button>
               ))}
-
             </div>
           </section>
-
         </main>
 
         <Footer />
-
       </div>
+
+      {/* ORDER MODAL */}
+      {selected && (
+        <div
+          className="fixed inset-0 z-[10050] flex items-end sm:items-center justify-center p-4"
+          role="dialog"
+          aria-modal="true"
+        >
+          <div className="absolute inset-0 bg-black/70" onClick={closeModal} />
+
+          <div className="relative w-full max-w-xl rounded-2xl border border-white/10 bg-black/70 backdrop-blur-md shadow-[0_20px_60px_rgba(0,0,0,0.5)] overflow-hidden">
+            <div className="flex items-start justify-between gap-4 p-5 border-b border-white/10">
+              <div>
+                <div className="text-white font-semibold text-lg">
+                  {selected.name}
+                </div>
+                <div className="text-white/60 text-sm">{selected.category}</div>
+                <div className="mt-1 text-white font-semibold">
+                  {formatZar(selected.priceCents)}
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={closeModal}
+                className="rounded-xl border border-white/15 bg-white/5 p-2 hover:bg-white/10 transition"
+                aria-label="Close"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <div className="p-5">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <label className="text-sm text-white/80">
+                  Name *
+                  <input
+                    className="mt-1 w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-white outline-none focus:border-white/25"
+                    value={order.name}
+                    onChange={(e) =>
+                      setOrder((s) => ({ ...s, name: e.target.value }))
+                    }
+                    placeholder="e.g. Pieter"
+                  />
+                </label>
+
+                <label className="text-sm text-white/80">
+                  Phone number *
+                  <input
+                    className="mt-1 w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-white outline-none focus:border-white/25"
+                    value={order.number}
+                    onChange={(e) =>
+                      setOrder((s) => ({ ...s, number: e.target.value }))
+                    }
+                    placeholder="e.g. 0721234567"
+                  />
+                </label>
+
+                <label className="text-sm text-white/80 sm:col-span-2">
+                  Delivery address *
+                  <textarea
+                    className="mt-1 w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-white outline-none focus:border-white/25 resize-none"
+                    rows={3}
+                    value={order.address}
+                    onChange={(e) =>
+                      setOrder((s) => ({ ...s, address: e.target.value }))
+                    }
+                    placeholder="Street, suburb, city, province"
+                  />
+                </label>
+
+                <label className="text-sm text-white/80 sm:col-span-2">
+                  Size *
+                  <input
+                    className="mt-1 w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-white outline-none focus:border-white/25"
+                    value={order.size}
+                    onChange={(e) =>
+                      setOrder((s) => ({ ...s, size: e.target.value }))
+                    }
+                    placeholder="e.g. S / M / L / XL (or N/A)"
+                  />
+                </label>
+              </div>
+
+              {orderError && (
+                <div className="mt-4 rounded-2xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-200">
+                  {orderError}
+                </div>
+              )}
+
+              <div className="mt-5 flex gap-2 justify-end">
+                <button
+                  type="button"
+                  onClick={closeModal}
+                  className="rounded-xl border border-white/15 bg-white/5 px-4 py-2 text-sm hover:bg-white/10 transition"
+                >
+                  Cancel
+                </button>
+
+                <button
+                  type="button"
+                  onClick={orderNow}
+                  className="rounded-xl border border-white/15 bg-white/10 px-4 py-2 text-sm hover:bg-white/15 transition"
+                >
+                  Order now
+                </button>
+              </div>
+
+              <div className="mt-3 text-xs text-white/50">
+                Tapping “Order now” opens WhatsApp with your details pre-filled.
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
