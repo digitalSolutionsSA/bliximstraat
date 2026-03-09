@@ -28,10 +28,10 @@ export default function Bookings() {
   // Update these to your real details
   const contact = useMemo(
     () => ({
-      phoneDisplay: "+27 68 677 1511",
-      phoneTel: "+27686771511",
-      whatsappDisplay: "+27 68 677 1511",
-      whatsappLink: "https://wa.me/27686771511",
+      phoneDisplay: "+27 72 595 2287",
+      phoneTel: "+27725952287",
+      whatsappDisplay: "+27 72 595 2287",
+      whatsappLink: "https://wa.me/27725952287",
       email: "bookings@bliximstraat.com",
       emailTo: "bookings@bliximstraat.com",
       subjectPrefix: "Booking Enquiry",

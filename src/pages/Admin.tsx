@@ -273,7 +273,9 @@ export default function Admin() {
       </div>
     </div>
   );
-}/* ------------------ UI Bits ------------------ */
+}
+
+/* ------------------ UI Bits ------------------ */
 
 function TabButton({
   active,
@@ -496,8 +498,8 @@ function SongsPanel({ onSongsChanged }: { onSongsChanged: () => Promise<void> })
 
   const onEdit = (row: SongRow) => {
     setEditingId(row.id);
-    setTitle(row.title);
-    setArtist(row.artist);
+    setTitle(row.title ?? "");
+    setArtist(row.artist ?? "");
     setReleaseDate(row.release_date ?? "");
     setPriceZar(String(Math.round((row.price_cents ?? 0) / 100)));
     setCoverUrl(row.cover_url ?? "");
@@ -673,9 +675,7 @@ function SongsPanel({ onSongsChanged }: { onSongsChanged: () => Promise<void> })
     } finally {
       setSaving(false);
     }
-  };
-
-  return (
+  };  return (
     <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
       <div className="lg:col-span-7">
         <Card title="Songs" subtitle="Singles + album tracks. Assign album when adding a song.">
@@ -970,7 +970,9 @@ function SongsPanel({ onSongsChanged }: { onSongsChanged: () => Promise<void> })
       </div>
     </div>
   );
-}/* ------------------ LYRICS PANEL (FIXED FOR YOUR DB) ------------------ */
+}
+
+/* ------------------ LYRICS PANEL (FIXED FOR YOUR DB) ------------------ */
 
 function LyricsPanel({
   songs,
@@ -1135,9 +1137,7 @@ function LyricsPanel({
       setContent("");
       setError(null);
     }
-  };
-
-  return (
+  };  return (
     <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
       <div className="lg:col-span-7">
         <Card title="Lyrics" subtitle="Link lyrics to a song. Edit, replace, delete. No drama.">
@@ -1277,7 +1277,9 @@ function LyricsPanel({
       </div>
     </div>
   );
-}/* ------------------ OTHER PANELS ------------------ */
+}
+
+/* ------------------ OTHER PANELS ------------------ */
 
 function ShowsPanel() {
   // If your table isn't called "shows", change this:
@@ -1512,6 +1514,8 @@ function MerchPanel() {
   // If your table isn't called "products", change this:
   // Common alternatives: "merch", "merch_products"
   const PRODUCTS_TABLE = "products";
+  const MERCH_IMAGE_BUCKET = "covers";
+  const MERCH_CATEGORIES = ["Accessories", "Headwear", "Hoodies", "Shirts"];
 
   const [items, setItems] = useState<ProductRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -1521,18 +1525,20 @@ function MerchPanel() {
   const [editingId, setEditingId] = useState<string | null>(null);
 
   const [name, setName] = useState("");
-  const [category, setCategory] = useState("Merch");
+  const [category, setCategory] = useState("Accessories");
   const [priceZar, setPriceZar] = useState("0");
   const [imageUrl, setImageUrl] = useState("");
+  const [imageFile, setImageFile] = useState<File | null>(null);
   const [note, setNote] = useState("");
   const [isPreorder, setIsPreorder] = useState(false);
 
   const resetForm = () => {
     setEditingId(null);
     setName("");
-    setCategory("Merch");
+    setCategory("Accessories");
     setPriceZar("0");
     setImageUrl("");
+    setImageFile(null);
     setNote("");
     setIsPreorder(false);
   };
@@ -1558,12 +1564,36 @@ function MerchPanel() {
   const onEdit = (row: ProductRow) => {
     setEditingId(row.id);
     setName(row.name ?? "");
-    setCategory(row.category ?? "Merch");
+    setCategory(
+      row.category && MERCH_CATEGORIES.includes(row.category) ? row.category : "Accessories"
+    );
     setPriceZar(String(Math.round((row.price_cents ?? 0) / 100)));
     setImageUrl(row.image_url ?? "");
+    setImageFile(null);
     setNote(row.note ?? "");
     setIsPreorder(Boolean(row.is_preorder));
     setError(null);
+  };
+
+  const uploadMerchImage = async (file: File) => {
+    if (!file.type.startsWith("image/")) {
+      throw new Error("Merch image must be an image file.");
+    }
+
+    const ext = file.name.split(".").pop() || "bin";
+    const safeExt = ext.toLowerCase();
+    const path = `merch/${uuid()}.${safeExt}`;
+
+    const { data, error } = await supabase.storage.from(MERCH_IMAGE_BUCKET).upload(path, file, {
+      upsert: false,
+      contentType: file.type || undefined,
+      cacheControl: "3600",
+    });
+
+    if (error) throw new Error(error.message ?? "Merch image upload failed.");
+
+    const { data: urlData } = supabase.storage.from(MERCH_IMAGE_BUCKET).getPublicUrl(data.path);
+    return urlData.publicUrl;
   };
 
   const onDelete = async (id: string) => {
@@ -1590,11 +1620,17 @@ function MerchPanel() {
     try {
       if (!name.trim()) throw new Error("Name is required.");
 
+      let nextImageUrl = imageUrl.trim() || null;
+
+      if (imageFile) {
+        nextImageUrl = await uploadMerchImage(imageFile);
+      }
+
       const payload = {
         name: name.trim(),
-        category: category.trim() || "Merch",
+        category: category.trim() || "Accessories",
         price_cents: toCents(priceZar),
-        image_url: imageUrl.trim() || null,
+        image_url: nextImageUrl,
         note: note.trim() || null,
         is_preorder: Boolean(isPreorder),
       };
@@ -1614,9 +1650,7 @@ function MerchPanel() {
     } finally {
       setSaving(false);
     }
-  };
-
-  return (
+  };  return (
     <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
       <div className="lg:col-span-7">
         <Card title="Merch" subtitle="Manage your merch/products.">
@@ -1648,7 +1682,7 @@ function MerchPanel() {
                     </div>
 
                     <div className="text-xs text-white/60">
-                      {(p.category || "Merch") + " • " + formatZar(p.price_cents)}
+                      {(p.category || "Accessories") + " • " + formatZar(p.price_cents)}
                     </div>
 
                     {p.image_url ? (
@@ -1682,9 +1716,38 @@ function MerchPanel() {
 
           <div className="space-y-4">
             <Field label="Name" value={name} onChange={setName} placeholder="T-Shirt (Black)" />
-            <Field label="Category" value={category} onChange={setCategory} placeholder="Merch" />
+
+            <div>
+              <label className="block text-xs text-white/60 mb-2">Category</label>
+              <select
+                value={category}
+                onChange={(e) => setCategory(e.target.value)}
+                className="w-full rounded-2xl border border-white/10 bg-black/40 px-4 py-3 text-white/90 outline-none focus:border-teal-400/40 focus:ring-2 focus:ring-teal-400/15"
+              >
+                {MERCH_CATEGORIES.map((item) => (
+                  <option key={item} value={item}>
+                    {item}
+                  </option>
+                ))}
+              </select>
+            </div>
+
             <Field label="Price (ZAR)" value={priceZar} onChange={setPriceZar} type="number" />
-            <Field label="Image URL" value={imageUrl} onChange={setImageUrl} placeholder="https://..." />
+
+            <div className="rounded-2xl border border-white/10 bg-black/25 p-4 space-y-3">
+              <div className="text-sm font-semibold text-white/80">Product image</div>
+
+              <input
+                type="file"
+                accept="image/*"
+                onChange={(e) => setImageFile(e.target.files?.[0] ?? null)}
+                className="block w-full text-sm text-white/70 file:mr-3 file:rounded-lg file:border file:border-white/15 file:bg-black/30 file:px-3 file:py-1.5 file:text-white/80 hover:file:bg-black/40"
+              />
+
+              <div className="text-xs text-white/50">Or paste an image URL (optional)</div>
+              <Field label="" value={imageUrl} onChange={setImageUrl} placeholder="https://..." />
+            </div>
+
             <Field label="Note" value={note} onChange={setNote} placeholder="Optional" />
 
             <ToggleRow label="Preorder" checked={isPreorder} onChange={setIsPreorder} disabled={saving} />

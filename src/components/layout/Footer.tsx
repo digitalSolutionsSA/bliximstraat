@@ -102,7 +102,7 @@ export default function Footer() {
             </h3>
 
             <p className="mt-4 text-sm text-white/65">
-              Bookings, collaborations, press, or controlled chaos.
+              Bookings, press, or controlled chaos.
             </p>
 
             <div className="mt-4 space-y-2 text-sm">
@@ -113,10 +113,10 @@ export default function Footer() {
                 bookings@bliximstraat.com
               </a>
               <a
-                href="tel:+27686771511"
+                href="tel:+27725952287"
                 className="block font-semibold text-white/80 hover:text-white transition"
               >
-                +27 68 677 1511
+                +27 72 595 2287
               </a>
             </div>
 
