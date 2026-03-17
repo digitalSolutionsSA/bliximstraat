@@ -45,7 +45,7 @@ export default function Merch() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const whatsappNumber = "27686771511";
+  const whatsappNumber = "27759572550";
 
   const [selected, setSelected] = useState<ProductUI | null>(null);
   const [order, setOrder] = useState<OrderForm>({

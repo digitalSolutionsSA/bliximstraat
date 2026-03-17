@@ -102,7 +102,7 @@ export default function Footer() {
             </h3>
 
             <p className="mt-4 text-sm text-white/65">
-              Bookings, press, or controlled chaos.
+              Contact us for bookings, media enquiries, or any other questions!
             </p>
 
             <div className="mt-4 space-y-2 text-sm">

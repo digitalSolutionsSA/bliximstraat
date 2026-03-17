@@ -197,7 +197,7 @@ export default function About() {
                     <div className="rounded-2xl border border-white/10 bg-black/35 p-5">
                       <div className="text-sm text-white/60">Core sound</div>
                       <div className="mt-2 text-white/80">
-                        Dark-pop / alt / synth-influenced songwriting with punchy
+                        Afrikaans EDM / Trap / Synth-influenced songwriting with punchy
                         hooks and cinematic space.
                       </div>
                     </div>
