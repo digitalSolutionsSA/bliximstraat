@@ -107,16 +107,16 @@ export default function Footer() {
 
             <div className="mt-4 space-y-2 text-sm">
               <a
-                href="mailto:bookings@bliximstraat.com"
+                href="mailto:info@bliximstraat.com"
                 className="block font-semibold text-white/80 hover:text-white transition"
               >
-                bookings@bliximstraat.com
+                info@bliximstraat.com
               </a>
               <a
-                href="tel:+27725952287"
+                href="tel:+27686771511"
                 className="block font-semibold text-white/80 hover:text-white transition"
               >
-                +27 72 595 2287
+                +27 68 677 1511
               </a>
             </div>
 
