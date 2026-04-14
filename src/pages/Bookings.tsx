@@ -25,15 +25,20 @@ type FormState = {
 };
 
 export default function Bookings() {
-  // Update these to your real details
   const contact = useMemo(
     () => ({
-      phoneDisplay: "+27 68 677 1511",
-      phoneTel: "+27686771511",
-      whatsappDisplay: "+27 68 677 1511",
-      whatsappLink: "https://wa.me/27686771511",
-      email: "bookings@bliximstraat.com",
-      emailTo: "bookings@bliximstraat.com",
+      bookings: {
+        phoneDisplay: "+27 82 301 0820",
+        phoneTel: "+27823010820",
+        whatsappDisplay: "+27 82 301 0820",
+        whatsappLink: "https://wa.me/27823010820",
+        email: "events@thelegacygroup.co.za",
+      },
+      prManager: {
+        phoneDisplay: "071 334 8346",
+        phoneTel: "+27713348346",
+        email: "management@bliximstraat.com",
+      },
       subjectPrefix: "Booking Enquiry",
     }),
     []
@@ -63,6 +68,11 @@ export default function Bookings() {
     };
 
   const buildMailto = () => {
+    const recipients = [
+      contact.bookings.email,
+      contact.prManager.email,
+    ].join(",");
+
     const lines = [
       `${contact.subjectPrefix} - ${form.eventType}`,
       "",
@@ -85,7 +95,7 @@ export default function Bookings() {
     );
     const body = encodeURIComponent(lines.join("\n"));
 
-    return `mailto:${contact.emailTo}?subject=${subject}&body=${body}`;
+    return `mailto:${recipients}?subject=${subject}&body=${body}`;
   };
 
   const onSubmit = (e: React.FormEvent) => {
@@ -98,24 +108,23 @@ export default function Bookings() {
   return (
     <div className="relative min-h-screen text-white overflow-x-hidden flex flex-col">
       {/* === FIXED VIDEO BACKGROUND (fast + mobile-safe) === */}
-<div className="fixed inset-0 z-0 pointer-events-none">
-  <video
-    autoPlay
-    muted
-    loop
-    playsInline
-    preload="auto"
-    disablePictureInPicture
-    poster="/normal-bg-poster.jpg"
-    className="h-full w-full object-cover pointer-events-none select-none"
-  >
-    <source src="/normal-bg.webm" type="video/webm" />
-    <source src="/normal-bg.mp4" type="video/mp4" />
-  </video>
+      <div className="fixed inset-0 z-0 pointer-events-none">
+        <video
+          autoPlay
+          muted
+          loop
+          playsInline
+          preload="auto"
+          disablePictureInPicture
+          poster="/normal-bg-poster.jpg"
+          className="h-full w-full object-cover pointer-events-none select-none"
+        >
+          <source src="/normal-bg.webm" type="video/webm" />
+          <source src="/normal-bg.mp4" type="video/mp4" />
+        </video>
 
-  <div className="absolute inset-0 bg-black/40" />
-</div>
-
+        <div className="absolute inset-0 bg-black/40" />
+      </div>
 
       {/* Foreground */}
       <div className="relative z-10 flex flex-col min-h-screen">
@@ -251,8 +260,7 @@ export default function Bookings() {
                 </div>
 
                 <p className="mt-4 text-xs text-white/50">
-                  Tip: wire this to Supabase later. For now, it works everywhere
-                  without backend drama.
+                  This will send the enquiry to both the bookings email and the PR manager.
                 </p>
               </section>
 
@@ -262,29 +270,56 @@ export default function Bookings() {
                   <div className="px-6 py-5 border-b border-white/10">
                     <h2 className="text-2xl font-black tracking-tight">Contact</h2>
                     <p className="mt-1 text-sm text-white/60">
-                      Choose your favorite method of communication.
+                      Choose the right human to bother.
                     </p>
                   </div>
 
-                  <div className="px-6 py-6 space-y-4">
-                    <ContactRow
-                      icon={<Phone className="h-4 w-4" />}
-                      label="Phone"
-                      value={contact.phoneDisplay}
-                      href={`tel:${contact.phoneTel}`}
-                    />
-                    <ContactRow
-                      icon={<MessageCircle className="h-4 w-4" />}
-                      label="WhatsApp"
-                      value={contact.whatsappDisplay}
-                      href={contact.whatsappLink}
-                    />
-                    <ContactRow
-                      icon={<Mail className="h-4 w-4" />}
-                      label="Email"
-                      value={contact.email}
-                      href={`mailto:${contact.emailTo}`}
-                    />
+                  <div className="px-6 py-6 space-y-6">
+                    <div>
+                      <h3 className="text-sm font-bold uppercase tracking-[0.22em] text-teal-300/90 mb-3">
+                        Bookings
+                      </h3>
+                      <div className="space-y-4">
+                        <ContactRow
+                          icon={<Phone className="h-4 w-4" />}
+                          label="Phone"
+                          value={contact.bookings.phoneDisplay}
+                          href={`tel:${contact.bookings.phoneTel}`}
+                        />
+                        <ContactRow
+                          icon={<MessageCircle className="h-4 w-4" />}
+                          label="WhatsApp"
+                          value={contact.bookings.whatsappDisplay}
+                          href={contact.bookings.whatsappLink}
+                        />
+                        <ContactRow
+                          icon={<Mail className="h-4 w-4" />}
+                          label="Email"
+                          value={contact.bookings.email}
+                          href={`mailto:${contact.bookings.email}`}
+                        />
+                      </div>
+                    </div>
+
+                    <div className="border-t border-white/10 pt-6">
+                      <h3 className="text-sm font-bold uppercase tracking-[0.22em] text-fuchsia-300/90 mb-3">
+                        PR Manager
+                      </h3>
+                      <div className="space-y-4">
+                        <ContactRow
+                          icon={<Phone className="h-4 w-4" />}
+                          label="Phone"
+                          value={contact.prManager.phoneDisplay}
+                          href={`tel:${contact.prManager.phoneTel}`}
+                        />
+                        <ContactRow
+                          icon={<Mail className="h-4 w-4" />}
+                          label="Email"
+                          value={contact.prManager.email}
+                          href={`mailto:${contact.prManager.email}`}
+                        />
+                      </div>
+                    </div>
                   </div>
                 </div>
               </aside>

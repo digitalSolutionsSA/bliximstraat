@@ -1,12 +1,13 @@
 import { useEffect, useMemo, useState } from "react";
 import PageContainer from "../layout/PageContainer";
-import { supabase } from "../../lib/supabase"; // adjust if your path differs
+import { supabase } from "../../lib/supabase";
 
 type SongUI = {
   id: string;
   title: string;
   artist: string;
   dateLabel: string;
+  coverUrl: string | null;
 };
 
 type ShowUI = {
@@ -26,8 +27,6 @@ function pickFirstDate(v: any): Date | null {
   return Number.isNaN(d.getTime()) ? null : d;
 }
 
-
-
 function relativeLabel(from: Date): string {
   const now = new Date();
   const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
@@ -44,7 +43,6 @@ function relativeLabel(from: Date): string {
   if (weeks === 1) return "1 week ago";
   if (weeks < 5) return `${weeks} weeks ago`;
 
-  // fallback: show a simple date for older stuff
   return new Intl.DateTimeFormat("en-ZA", {
     day: "2-digit",
     month: "short",
@@ -64,8 +62,6 @@ export default function HomeHighlights() {
   const [latestSongs, setLatestSongs] = useState<SongUI[]>([]);
   const [upcomingShows, setUpcomingShows] = useState<ShowUI[]>([]);
   const [loading, setLoading] = useState(true);
-
-  // optional: for debugging, but not required
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -76,12 +72,10 @@ export default function HomeHighlights() {
       setError(null);
 
       try {
-        // --- Latest songs: newest first ---
-        // If you ONLY want singles (not album tracks), uncomment the .is("album_id", null)
         const songsRes = await supabase
           .from("songs")
-          .select("id,title,artist,created_at,release_date,album_id")
-          // .is("album_id", null) // <- uncomment if you want singles only
+          .select("id,title,artist,created_at,release_date,album_id,cover_url")
+          // .is("album_id", null) // uncomment if you only want singles
           .order("created_at", { ascending: false })
           .limit(4);
 
@@ -92,27 +86,26 @@ export default function HomeHighlights() {
             (s.release_date && new Date(s.release_date)) ||
             (s.created_at && new Date(s.created_at)) ||
             new Date();
+
           return {
             id: String(s.id),
             title: String(s.title ?? "Untitled"),
             artist: String(s.artist ?? "Unknown"),
             dateLabel: relativeLabel(d),
+            coverUrl: s.cover_url ?? null,
           };
         });
 
-        // --- Upcoming shows: soonest first, only future-ish ---
-        // We fetch a bit more, then filter/sort client-side because show schemas vary.
-          const showsRes = await supabase
+        const showsRes = await supabase
           .from("shows")
           .select("id,title,venue,city,show_date,ticket_url,created_at")
           .order("show_date", { ascending: true })
           .limit(25);
 
-
-
         if (showsRes.error) throw showsRes.error;
 
         const now = new Date();
+        const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
         const showsRaw = showsRes.data ?? [];
 
         const showsSorted = showsRaw
@@ -120,8 +113,8 @@ export default function HomeHighlights() {
             const d = pickFirstDate(sh);
             return { sh, d };
           })
-          .filter(({ d }) => d && d.getTime() >= new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime())
-          .sort((a, b) => (a.d!.getTime() - b.d!.getTime()))
+          .filter(({ d }) => d && d.getTime() >= todayStart)
+          .sort((a, b) => a.d!.getTime() - b.d!.getTime())
           .slice(0, 3)
           .map(({ sh, d }) => ({
             id: String(sh.id),
@@ -148,6 +141,7 @@ export default function HomeHighlights() {
     }
 
     load();
+
     return () => {
       cancelled = true;
     };
@@ -194,24 +188,55 @@ export default function HomeHighlights() {
                     key={s.id}
                     className="rounded-2xl border border-black/10 bg-white p-4 shadow-sm hover:shadow-md transition"
                   >
-                    <div className="text-xs font-semibold text-black/50">
-                      {s.dateLabel}
-                    </div>
-                    <div className="mt-2 text-lg font-extrabold leading-tight">
-                      {s.title}
-                    </div>
-                    <div className="mt-1 text-sm text-black/65">{s.artist}</div>
+                    <div className="flex items-start gap-4">
+                      <div className="h-[84px] w-[84px] shrink-0 overflow-hidden rounded-xl border border-black/10 bg-black/5">
+                        {s.coverUrl ? (
+                          <img
+                            src={s.coverUrl}
+                            alt={`${s.title} cover`}
+                            className="h-full w-full object-cover"
+                            loading="lazy"
+                          />
+                        ) : (
+                          <div className="flex h-full w-full items-center justify-center text-[10px] text-black/35 text-center px-1">
+                            No cover
+                          </div>
+                        )}
+                      </div>
 
-                    <div className="mt-4 flex flex-col sm:flex-row gap-2">
+                      <div className="min-w-0 flex-1">
+                        <div className="text-xs font-medium text-black/45">
+                          {s.dateLabel}
+                        </div>
+
+                        <div
+                          className="mt-1 text-[1.05rem] font-extrabold leading-tight text-black"
+                          style={{
+                            display: "-webkit-box",
+                            WebkitLineClamp: 2,
+                            WebkitBoxOrient: "vertical",
+                            overflow: "hidden",
+                          }}
+                        >
+                          {s.title}
+                        </div>
+
+                        <div className="mt-1 text-sm text-black/60 truncate">
+                          {s.artist}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="mt-4 flex gap-2">
                       <a
                         href={`/music#song-${s.id}`}
-                        className="w-full sm:w-auto text-center rounded-xl bg-black text-white px-4 py-2 text-sm font-semibold hover:bg-black/90 transition"
+                        className="inline-flex items-center justify-center rounded-xl bg-black text-white px-4 py-2 text-sm font-semibold hover:bg-black/90 transition"
                       >
                         Play
                       </a>
                       <a
                         href={`/music#song-${s.id}`}
-                        className="w-full sm:w-auto text-center rounded-xl border border-black/15 px-4 py-2 text-sm font-semibold hover:bg-black/5 transition"
+                        className="inline-flex items-center justify-center rounded-xl border border-black/15 px-4 py-2 text-sm font-semibold hover:bg-black/5 transition"
                       >
                         Details
                       </a>
@@ -238,7 +263,8 @@ export default function HomeHighlights() {
               <div className="mt-4 text-sm text-black/60">Loading shows…</div>
             ) : showsToRender.length === 0 ? (
               <div className="mt-4 text-sm text-black/60">
-                No upcoming shows found. Either you’re taking a break or your table date fields are chaos.
+                No upcoming shows found. Either you’re taking a break or your table
+                date fields are chaos.
               </div>
             ) : (
               <div className="mt-4 space-y-3">
@@ -306,11 +332,7 @@ export default function HomeHighlights() {
               </div>
             )}
 
-            {error && (
-              <div className="mt-4 text-xs text-red-600">
-                {error}
-              </div>
-            )}
+            {error && <div className="mt-4 text-xs text-red-600">{error}</div>}
           </div>
         </div>
 
