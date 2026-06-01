@@ -10,6 +10,7 @@ export type Song = {
   year: string;
   genre?: string;
   album?: string;
+  albumUrl?: string;
   youtubeUrl: string;
   coverUrl?: string;
 };
@@ -31,6 +32,7 @@ export const SONGS: Song[] = [
     year: "2026",
     genre: "Dance",
     album: "Vir Jou Is Ek Baby",
+    albumUrl: YT("P5lH2ckXCBY"),
     youtubeUrl: CHANNEL,
     coverUrl: COVER("baby.png"),
   },
@@ -87,12 +89,21 @@ export const SONGS: Song[] = [
 
   // ── 2026 Singles ─────────────────────────────────────────────────────────
   {
+    id: "ek-is-joune",
+    title: "Ek Is Joune",
+    artist: "BliximStraat",
+    year: "2026",
+    genre: "Afrikaans EDM",
+    youtubeUrl: YT("aIIFwZwfCZY"),
+    coverUrl: COVER("joune.png"),
+  },
+  {
     id: "super-sokkie",
     title: "Super Sokkie",
     artist: "BliximStraat",
     year: "2026",
     genre: "Afrikaans EDM",
-    youtubeUrl: CHANNEL,
+    youtubeUrl: YT("-5lflAg15yc"),
     coverUrl: COVER("super-sokkie.png"),
   },
   {
@@ -110,7 +121,7 @@ export const SONGS: Song[] = [
     artist: "BliximStraat",
     year: "2026",
     genre: "Afrikaans EDM",
-    youtubeUrl: CHANNEL,
+    youtubeUrl: YT("0pgtiY3N13I"),
     coverUrl: COVER("wild-ride.jpg"),
   },
   {
@@ -131,6 +142,7 @@ export const SONGS: Song[] = [
     year: "2026",
     genre: "Afrikaans EDM",
     album: "Stupid Verlief",
+    albumUrl: YT("mL8vBA_I57A"),
     youtubeUrl: YT("-mdHRkVi-OE"),
     coverUrl: COVER("stupid-verlief.jpg"),
   },
@@ -233,6 +245,7 @@ export const SONGS: Song[] = [
     year: "2026",
     genre: "Afrikaans EDM",
     album: "Sy Byt My In My Nek",
+    albumUrl: YT("KQWEVtntc3E"),
     youtubeUrl: CHANNEL,
     coverUrl: COVER("sy-byt-my-in-my-nek.jpg"),
   },
@@ -314,7 +327,7 @@ export const SONGS: Song[] = [
     artist: "BliximStraat",
     year: "2025",
     genre: "Afrikaans EDM",
-    youtubeUrl: CHANNEL,
+    youtubeUrl: YT("4M9ffUAOwDE"),
     coverUrl: COVER("simptome-van-kersfees.jpg"),
   },
 
@@ -326,6 +339,7 @@ export const SONGS: Song[] = [
     year: "2025",
     genre: "Afrikaans EDM",
     album: "Tyd Staan Stil",
+    albumUrl: YT("_b6wKtHDjwY"),
     youtubeUrl: YT("_b6wKtHDjwY"),
     coverUrl: COVER("tyd-staan-stil.jpg"),
   },
@@ -428,6 +442,7 @@ export const SONGS: Song[] = [
     year: "2025",
     genre: "Afrikaans EDM",
     album: "Sê Jy Voel Dieselfde",
+    albumUrl: YT("3rTqIz980AU"),
     youtubeUrl: CHANNEL,
     coverUrl: COVER("se-jy-voel-dieselfde.jpg"),
   },
@@ -570,6 +585,7 @@ export const SONGS: Song[] = [
     year: "2025",
     genre: "Afrikaans EDM",
     album: "Sy Is Op Haar Mooiste In My Geskeurde T-Shirt",
+    albumUrl: YT("sSXX8zfL4-8"),
     youtubeUrl: YT("sSXX8zfL4-8"),
     coverUrl: COVER("sy-is-op-haar-mooiste.jpg"),
   },
@@ -752,6 +768,7 @@ export const SONGS: Song[] = [
     year: "2025",
     genre: "Afrikaans EDM",
     album: "Jou Liefde Is Soos Donderweer",
+    albumUrl: YT("Uh8j8U0ZPhg"),
     youtubeUrl: YT("wJQm3T-FYPw"),
     coverUrl: COVER("jou-liefde-is-soos-donderweer.jpg"),
   },
@@ -914,6 +931,7 @@ export const SONGS: Song[] = [
     year: "2025",
     genre: "Afrikaans EDM",
     album: "Lippe Af Lêk",
+    albumUrl: YT("EudxmCX_HWw"),
     youtubeUrl: CHANNEL,
     coverUrl: COVER("lippe-af-lek.png"),
   },
@@ -986,6 +1004,6 @@ export const SONGS: Song[] = [
     year: "2024",
     genre: "Afrikaans EDM",
     youtubeUrl: YT("vidfHYPea_c"),
-    coverUrl: `https://img.youtube.com/vi/vidfHYPea_c/hqdefault.jpg`,
+    coverUrl: COVER("soen.png"),
   },
 ];

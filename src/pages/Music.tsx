@@ -57,7 +57,7 @@ function useReleases(songs: Song[]): Release[] {
         type: "Album",
         year: tracks[0].year,
         cover: tracks[0].coverUrl,
-        youtubeUrl: tracks.find(s => hasVideo(s))?.youtubeUrl ?? YT_CHANNEL,
+        youtubeUrl: tracks[0].albumUrl ?? tracks.find(s => hasVideo(s))?.youtubeUrl ?? YT_CHANNEL,
         tracks,
       });
     }
@@ -153,8 +153,10 @@ function ReleaseCard({ release, isActive }: { release: Release; isActive: boolea
       {/* Cover art */}
       <div className="relative w-full aspect-square overflow-hidden">
         {release.cover ? (
-          <img src={release.cover} alt={release.title}
-            className="w-full h-full object-cover block" draggable={false} />
+          <a href={release.youtubeUrl} target="_blank" rel="noreferrer" onClick={e => e.stopPropagation()}>
+            <img src={release.cover} alt={release.title}
+              className="w-full h-full object-cover block cursor-pointer hover:opacity-80 transition-opacity duration-200" draggable={false} />
+          </a>
         ) : (
           <div className="w-full h-full flex items-center justify-center" style={{ background: "rgba(255,255,255,0.03)" }}>
             <span className="text-7xl text-white/10">♪</span>
@@ -282,6 +284,8 @@ export default function Music() {
 
   // drag/swipe
   const onPointerDown = (e: React.PointerEvent) => {
+    const tag = (e.target as HTMLElement).tagName;
+    if (tag === "A" || tag === "IMG") return;
     dragging.current  = true;
     dragStart.current = e.clientX;
     dragDelta.current = 0;
