@@ -4,20 +4,24 @@ import Footer from "../components/layout/Footer";
 import VideoBackground from "../components/layout/VideoBackground";
 
 import imgBlueCap from "../../Graphics/merch/blue-cap.png";
+import imgBlueCheaperCap from "../../Graphics/merch/blue-cheaper-cap.png";
 import imgMenBlue from "../../Graphics/merch/men-blue.png";
 import imgMenGrey from "../../Graphics/merch/men-grey.png";
 import imgMooisteCap from "../../Graphics/merch/mooiste-cap.png";
+import imgOrangeCap from "../../Graphics/merch/orange-cap.png";
 import imgOrangeJeanCap from "../../Graphics/merch/orange-jean-cap.png";
 import imgStupidCap from "../../Graphics/merch/stupid-cap.png";
 import imgWomenBlue from "../../Graphics/merch/women-blue.png";
 import imgWomenGrey from "../../Graphics/merch/women-grey.png";
+import imgKeyring from "../../Graphics/merch/keyring.png";
+import imgBand from "../../Graphics/merch/band.png";
 
-type Category = "All" | "Shirts" | "Caps";
+type Category = "All" | "Shirts" | "Caps" | "Accessories";
 
 type MerchItem = {
   id: string;
   name: string;
-  category: "Shirts" | "Caps";
+  category: "Shirts" | "Caps" | "Accessories";
   priceZar: number;
   description: string;
   isPreorder?: boolean;
@@ -30,7 +34,7 @@ const MERCH: MerchItem[] = [
     id: "men-tee-blue",
     name: "Men's Tee — Blue",
     category: "Shirts",
-    priceZar: 350,
+    priceZar: 450,
     description: "100% cotton, screen-printed BliximStraat logo. Regular fit.",
     image: imgMenBlue,
     sizes: ["S", "M", "L", "XL", "XXL"],
@@ -39,7 +43,7 @@ const MERCH: MerchItem[] = [
     id: "men-tee-grey",
     name: "Men's Tee — Grey",
     category: "Shirts",
-    priceZar: 350,
+    priceZar: 450,
     description: "100% cotton, screen-printed BliximStraat logo. Regular fit.",
     image: imgMenGrey,
     sizes: ["S", "M", "L", "XL", "XXL"],
@@ -48,7 +52,7 @@ const MERCH: MerchItem[] = [
     id: "women-tee-blue",
     name: "Women's Tee — Blue",
     category: "Shirts",
-    priceZar: 350,
+    priceZar: 450,
     description: "100% cotton, screen-printed BliximStraat logo. Slim fit.",
     image: imgWomenBlue,
     sizes: ["XS", "S", "M", "L", "XL"],
@@ -57,7 +61,7 @@ const MERCH: MerchItem[] = [
     id: "women-tee-grey",
     name: "Women's Tee — Grey",
     category: "Shirts",
-    priceZar: 350,
+    priceZar: 450,
     description: "100% cotton, screen-printed BliximStraat logo. Slim fit.",
     image: imgWomenGrey,
     sizes: ["XS", "S", "M", "L", "XL"],
@@ -66,7 +70,7 @@ const MERCH: MerchItem[] = [
     id: "cap-blue",
     name: "Blue Snapback Cap",
     category: "Caps",
-    priceZar: 280,
+    priceZar: 420,
     description: "Embroidered logo, adjustable snapback closure.",
     image: imgBlueCap,
     sizes: ["One Size"],
@@ -75,7 +79,7 @@ const MERCH: MerchItem[] = [
     id: "cap-mooiste",
     name: "Mooiste Cap",
     category: "Caps",
-    priceZar: 280,
+    priceZar: 420,
     description: "Embroidered logo, adjustable snapback closure.",
     image: imgMooisteCap,
     sizes: ["One Size"],
@@ -84,7 +88,7 @@ const MERCH: MerchItem[] = [
     id: "cap-orange-jean",
     name: "Orange Jean Cap",
     category: "Caps",
-    priceZar: 300,
+    priceZar: 420,
     description: "Denim-style brim, embroidered logo, adjustable strap.",
     image: imgOrangeJeanCap,
     sizes: ["One Size"],
@@ -93,9 +97,45 @@ const MERCH: MerchItem[] = [
     id: "cap-stupid",
     name: "Stupid Cap",
     category: "Caps",
-    priceZar: 280,
+    priceZar: 420,
     description: "Embroidered logo, adjustable snapback closure.",
     image: imgStupidCap,
+    sizes: ["One Size"],
+  },
+  {
+    id: "cap-blue-cheaper",
+    name: "Blue Cap",
+    category: "Caps",
+    priceZar: 120,
+    description: "BliximStraat logo cap, adjustable closure.",
+    image: imgBlueCheaperCap,
+    sizes: ["One Size"],
+  },
+  {
+    id: "cap-orange",
+    name: "Orange Cap",
+    category: "Caps",
+    priceZar: 120,
+    description: "BliximStraat logo cap, adjustable closure.",
+    image: imgOrangeCap,
+    sizes: ["One Size"],
+  },
+  {
+    id: "keyring",
+    name: "BliximStraat Keyring",
+    category: "Accessories",
+    priceZar: 30,
+    description: "Official BliximStraat branded keyring.",
+    image: imgKeyring,
+    sizes: ["One Size"],
+  },
+  {
+    id: "band",
+    name: "BliximStraat Band",
+    category: "Accessories",
+    priceZar: 30,
+    description: "Official BliximStraat wristband.",
+    image: imgBand,
     sizes: ["One Size"],
   },
 ];
@@ -113,7 +153,7 @@ function buildWhatsappLink(item: MerchItem) {
   return `https://wa.me/${WHATSAPP_NUMBER}?text=${msg}`;
 }
 
-const CATEGORIES: Category[] = ["All", "Shirts", "Caps"];
+const CATEGORIES: Category[] = ["All", "Shirts", "Caps", "Accessories"];
 
 export default function Merch() {
   const [activeCategory, setActiveCategory] = useState<Category>("All");
@@ -193,7 +233,7 @@ export default function Merch() {
               </p>
               <h1 className="text-4xl md:text-5xl font-light tracking-tight text-white">Merch</h1>
               <p className="mt-2 text-sm text-white/40 max-w-lg">
-                Official BliximStraat gear. Order via WhatsApp — we'll confirm availability and handle delivery.
+                Official BliximStraat gear. Order via WhatsApp — we'll confirm availability. Deliveries are standardized at R120.00 PER ORDER within South Africa.
               </p>
             </header>
 

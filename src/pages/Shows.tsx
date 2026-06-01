@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import imgWelkom from "../../Graphics/upcoming/welkom.jpeg";
 import Navbar from "../components/layout/Navbar";
 import Footer from "../components/layout/Footer";
 import VideoBackground from "../components/layout/VideoBackground";
@@ -188,6 +189,13 @@ export default function Shows() {
             {/* Upcoming */}
             <section className="space-y-5">
               <h2 className="text-base font-medium text-white">Upcoming Shows</h2>
+
+              <img
+                src={imgWelkom}
+                alt="Welkom show"
+                className="rounded-lg object-cover"
+                style={{ width: "220px", maxWidth: "100%" }}
+              />
 
               {upcoming.length === 0 ? (
                 <div

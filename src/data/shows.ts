@@ -14,14 +14,12 @@ export type Show = {
 };
 
 export const SHOWS: Show[] = [
-  // ── Add upcoming shows below ──────────────────────────────────
-  // {
-  //   id: "show-1",
-  //   title: "BliximStraat Live",
-  //   venue: "The Venue",
-  //   city: "Johannesburg",
-  //   date: "2026-07-15",
-  //   time: "20:00",
-  //   ticketUrl: "https://tickets.example.com",
-  // },
+  {
+    id: "welkom-bokkieweek-2026",
+    title: "Kiefbeats & BliximStraat — Bokkieweek",
+    venue: "Rovers Rugby Club",
+    city: "Welkom",
+    date: "2026-06-06",
+    time: "15:00",
+  },
 ];
