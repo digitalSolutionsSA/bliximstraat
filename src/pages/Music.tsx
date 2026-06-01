@@ -419,7 +419,7 @@ export default function Music() {
                   onChange={e => { setSearch(e.target.value); setIndex(0); }}
                   placeholder="Search..."
                   className="pl-9 pr-4 py-2 text-sm text-white/70 placeholder-white/25 rounded-full outline-none transition-all duration-200 focus:ring-1"
-                  style={{ background: "rgba(255,255,255,0.07)", border: "1px solid rgba(255,255,255,0.1)", width: "180px", ringColor: "#FF0090" }}
+                  style={{ background: "rgba(255,255,255,0.07)", border: "1px solid rgba(255,255,255,0.1)", width: "180px" }}
                 />
               </div>
             </div>
