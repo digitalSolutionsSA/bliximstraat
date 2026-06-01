@@ -1,503 +1,421 @@
-// src/pages/Merch.tsx
-import { useEffect, useMemo, useState } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import Navbar from "../components/layout/Navbar";
 import Footer from "../components/layout/Footer";
-import { motion } from "framer-motion";
-import { ShoppingBag, MessageCircle, X } from "lucide-react";
-import { supabase } from "../lib/supabase";
+import VideoBackground from "../components/layout/VideoBackground";
 
-type ProductRow = {
+import imgBlueCap from "../../Graphics/merch/blue-cap.png";
+import imgMenBlue from "../../Graphics/merch/men-blue.png";
+import imgMenGrey from "../../Graphics/merch/men-grey.png";
+import imgMooisteCap from "../../Graphics/merch/mooiste-cap.png";
+import imgOrangeJeanCap from "../../Graphics/merch/orange-jean-cap.png";
+import imgStupidCap from "../../Graphics/merch/stupid-cap.png";
+import imgWomenBlue from "../../Graphics/merch/women-blue.png";
+import imgWomenGrey from "../../Graphics/merch/women-grey.png";
+
+type Category = "All" | "Shirts" | "Caps";
+
+type MerchItem = {
   id: string;
   name: string;
-  category: string;
-  price_cents: number;
-  image_url: string | null;
-  note: string | null;
-  is_preorder: boolean;
-  created_at?: string;
-};
-
-type ProductUI = {
-  id: string;
-  name: string;
-  category: string;
-  priceCents: number;
-  imageUrl: string;
-  note?: string;
+  category: "Shirts" | "Caps";
+  priceZar: number;
+  description: string;
   isPreorder?: boolean;
+  image: string;
+  sizes: string[];
 };
 
-type OrderForm = {
-  name: string;
-  number: string;
-  address: string;
-  size: string;
-};
+const MERCH: MerchItem[] = [
+  {
+    id: "men-tee-blue",
+    name: "Men's Tee — Blue",
+    category: "Shirts",
+    priceZar: 350,
+    description: "100% cotton, screen-printed BliximStraat logo. Regular fit.",
+    image: imgMenBlue,
+    sizes: ["S", "M", "L", "XL", "XXL"],
+  },
+  {
+    id: "men-tee-grey",
+    name: "Men's Tee — Grey",
+    category: "Shirts",
+    priceZar: 350,
+    description: "100% cotton, screen-printed BliximStraat logo. Regular fit.",
+    image: imgMenGrey,
+    sizes: ["S", "M", "L", "XL", "XXL"],
+  },
+  {
+    id: "women-tee-blue",
+    name: "Women's Tee — Blue",
+    category: "Shirts",
+    priceZar: 350,
+    description: "100% cotton, screen-printed BliximStraat logo. Slim fit.",
+    image: imgWomenBlue,
+    sizes: ["XS", "S", "M", "L", "XL"],
+  },
+  {
+    id: "women-tee-grey",
+    name: "Women's Tee — Grey",
+    category: "Shirts",
+    priceZar: 350,
+    description: "100% cotton, screen-printed BliximStraat logo. Slim fit.",
+    image: imgWomenGrey,
+    sizes: ["XS", "S", "M", "L", "XL"],
+  },
+  {
+    id: "cap-blue",
+    name: "Blue Snapback Cap",
+    category: "Caps",
+    priceZar: 280,
+    description: "Embroidered logo, adjustable snapback closure.",
+    image: imgBlueCap,
+    sizes: ["One Size"],
+  },
+  {
+    id: "cap-mooiste",
+    name: "Mooiste Cap",
+    category: "Caps",
+    priceZar: 280,
+    description: "Embroidered logo, adjustable snapback closure.",
+    image: imgMooisteCap,
+    sizes: ["One Size"],
+  },
+  {
+    id: "cap-orange-jean",
+    name: "Orange Jean Cap",
+    category: "Caps",
+    priceZar: 300,
+    description: "Denim-style brim, embroidered logo, adjustable strap.",
+    image: imgOrangeJeanCap,
+    sizes: ["One Size"],
+  },
+  {
+    id: "cap-stupid",
+    name: "Stupid Cap",
+    category: "Caps",
+    priceZar: 280,
+    description: "Embroidered logo, adjustable snapback closure.",
+    image: imgStupidCap,
+    sizes: ["One Size"],
+  },
+];
 
-const formatZar = (cents: number) =>
-  new Intl.NumberFormat("en-ZA", {
-    style: "currency",
-    currency: "ZAR",
-  }).format((cents || 0) / 100);
+const WHATSAPP_NUMBER = "27759572550";
+
+function buildWhatsappLink(item: MerchItem) {
+  const sizeNote =
+    item.sizes.length === 1 && item.sizes[0] === "One Size"
+      ? ""
+      : " — Size: [please fill in]";
+  const msg = encodeURIComponent(
+    `Hi! I'd like to order the ${item.name} (R${item.priceZar})${sizeNote}. Please confirm availability and delivery details.`
+  );
+  return `https://wa.me/${WHATSAPP_NUMBER}?text=${msg}`;
+}
+
+const CATEGORIES: Category[] = ["All", "Shirts", "Caps"];
 
 export default function Merch() {
-  const [items, setItems] = useState<ProductRow[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [activeCategory, setActiveCategory] = useState<Category>("All");
+  const [activeIndex, setActiveIndex] = useState(0);
+  const [dragging, setDragging] = useState(false);
+  const dragStartX = useRef(0);
+  const dragDelta = useRef(0);
+  const trackRef = useRef<HTMLDivElement>(null);
 
-  const whatsappNumber = "27759572550";
+  const filtered = MERCH.filter(
+    (item) => activeCategory === "All" || item.category === activeCategory
+  );
 
-  const [selected, setSelected] = useState<ProductUI | null>(null);
-  const [order, setOrder] = useState<OrderForm>({
-    name: "",
-    number: "",
-    address: "",
-    size: "",
+  // Clamp index when filtered list changes
+  useEffect(() => {
+    setActiveIndex((i) => Math.min(i, Math.max(filtered.length - 1, 0)));
+  }, [filtered.length]);
+
+  const goTo = useCallback(
+    (index: number) => {
+      setActiveIndex(Math.max(0, Math.min(index, filtered.length - 1)));
+    },
+    [filtered.length]
+  );
+
+  const prev = () => goTo(activeIndex - 1);
+  const next = () => goTo(activeIndex + 1);
+
+  // Keyboard navigation
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === "ArrowLeft") prev();
+      if (e.key === "ArrowRight") next();
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
   });
-  const [orderError, setOrderError] = useState<string | null>(null);
 
-  useEffect(() => {
-    const load = async () => {
-      setLoading(true);
-      setError(null);
+  // Touch / mouse drag
+  const onPointerDown = (e: React.PointerEvent) => {
+    setDragging(true);
+    dragStartX.current = e.clientX;
+    dragDelta.current = 0;
+    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+  };
+  const onPointerMove = (e: React.PointerEvent) => {
+    if (!dragging) return;
+    dragDelta.current = e.clientX - dragStartX.current;
+  };
+  const onPointerUp = () => {
+    if (!dragging) return;
+    setDragging(false);
+    if (dragDelta.current < -50) next();
+    else if (dragDelta.current > 50) prev();
+    dragDelta.current = 0;
+  };
 
-      const { data, error } = await supabase
-        .from("products")
-        .select("id,name,category,price_cents,image_url,note,is_preorder,created_at")
-        .order("created_at", { ascending: false });
-
-      if (error) {
-        setError(error.message);
-        setItems([]);
-        setLoading(false);
-        return;
-      }
-
-      setItems((data as ProductRow[]) ?? []);
-      setLoading(false);
-    };
-
-    load();
-  }, []);
-
-  const products: ProductUI[] = useMemo(() => {
-    const fallbackImg = (seed: string) =>
-      `https://picsum.photos/seed/${encodeURIComponent(seed)}/900/900`;
-
-    return items.map((p) => ({
-      id: p.id,
-      name: p.name,
-      category: p.category,
-      priceCents: p.price_cents ?? 0,
-      imageUrl: p.image_url || fallbackImg(p.name),
-      note: p.note ?? undefined,
-      isPreorder: !!p.is_preorder,
-    }));
-  }, [items]);
-
-  const categories = useMemo(() => {
-    const set = new Set<string>();
-    products.forEach((p) => set.add(p.category));
-    return Array.from(set).sort((a, b) => a.localeCompare(b));
-  }, [products]);
-
-  function openModal(p: ProductUI) {
-    setSelected(p);
-    setOrderError(null);
-    setOrder({
-      name: "",
-      number: "",
-      address: "",
-      size: "",
-    });
-
-    const prev = document.body.style.overflow;
-    document.body.dataset.prevOverflow = prev;
-    document.body.style.overflow = "hidden";
-  }
-
-  function closeModal() {
-    setSelected(null);
-    setOrderError(null);
-    const prev = document.body.dataset.prevOverflow ?? "";
-    document.body.style.overflow = prev;
-    delete document.body.dataset.prevOverflow;
-  }
-
-  function buildWhatsAppOrderMessage(p: ProductUI, f: OrderForm) {
-    const lines = [
-      "Hi! I want to order merch from Bliximstraat.",
-      "",
-      `Item: ${p.name}`,
-      `Category: ${p.category}`,
-      `Price: ${formatZar(p.priceCents)}`,
-      p.isPreorder ? "Preorder: Yes" : "",
-      p.note ? `Note: ${p.note}` : "",
-      "",
-      "Customer details:",
-      `Name: ${f.name}`,
-      `Number: ${f.number}`,
-      `Delivery address: ${f.address}`,
-      `Size: ${f.size || "N/A"}`,
-      "",
-      "Please confirm stock + total and I’ll proceed.",
-    ].filter(Boolean);
-
-    return lines.join("\n");
-  }
-
-  function whatsappLinkForOrder(p: ProductUI, f: OrderForm) {
-    const text = buildWhatsAppOrderMessage(p, f);
-    return `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(text)}`;
-  }
-
-  function validateOrder(f: OrderForm) {
-    if (f.name.trim().length < 2) return "Please enter your name.";
-    if (f.number.trim().length < 7) return "Please enter your phone number.";
-    if (f.address.trim().length < 8) return "Please enter your delivery address.";
-    if (f.size.trim().length < 1) return "Please enter a size (or type N/A).";
-    return null;
-  }
-
-  function orderNow() {
-    if (!selected) return;
-
-    const msg = validateOrder(order);
-    if (msg) {
-      setOrderError(msg);
-      return;
-    }
-
-    setOrderError(null);
-
-    const url = whatsappLinkForOrder(selected, order);
-    window.open(url, "_blank", "noopener,noreferrer");
-
-    closeModal();
-  }
-
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape" && selected) closeModal();
-    };
-
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [selected]);
+  const item = filtered[activeIndex];
 
   return (
-    <div className="relative min-h-screen text-white overflow-x-hidden flex flex-col">
-      {/* VIDEO BACKGROUND */}
-      <div className="fixed inset-0 z-0 pointer-events-none">
-        <video
-          autoPlay
-          muted
-          loop
-          playsInline
-          preload="auto"
-          disablePictureInPicture
-          poster="/normal-bg-poster.jpg"
-          className="h-full w-full object-cover pointer-events-none select-none"
-        >
-          <source src="/normal-bg.webm" type="video/webm" />
-          <source src="/normal-bg.mp4" type="video/mp4" />
-        </video>
-
-        <div className="absolute inset-0 bg-black/40" />
-      </div>
+    <div
+      className="relative min-h-screen text-white overflow-x-hidden flex flex-col"
+      style={{ background: "#000000" }}
+    >
+      <VideoBackground />
 
       <div className="relative z-10 flex flex-col min-h-screen">
         <Navbar />
 
         <main className="flex-1">
-          {/* HEADER */}
-          <section className="pt-28 pb-10 px-6">
-            <div className="max-w-6xl mx-auto">
-              <motion.div
-                initial={{ opacity: 0, y: 14 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.45 }}
-                className="flex items-start justify-between gap-6 flex-col md:flex-row"
-              >
-                <div>
-                  <h1 className="text-3xl md:text-5xl font-semibold tracking-tight">
-                    Merch
-                  </h1>
+          <div className="mx-auto max-w-5xl px-6 py-12">
 
-                  <p className="mt-3 text-white/70 max-w-2xl">
-                    Orders are currently only processed via WhatsApp, but we keep
-                    this page updated with all available products and details.
-                    Browse around, pick your favourites, and tap to order via
-                    WhatsApp. We’ll confirm stock and total before you commit.
-                    <span className="text-white/50">
-                      {" "}
-                      Yes, humans still buy physical things.
-                    </span>
-                  </p>
-                </div>
+            {/* Header */}
+            <header className="mb-10">
+              <p className="text-[10px] font-medium uppercase tracking-[0.28em] text-white/35 mb-3">
+                Store
+              </p>
+              <h1 className="text-4xl md:text-5xl font-light tracking-tight text-white">Merch</h1>
+              <p className="mt-2 text-sm text-white/40 max-w-lg">
+                Official BliximStraat gear. Order via WhatsApp — we'll confirm availability and handle delivery.
+              </p>
+            </header>
 
-                <div className="flex gap-3">
-                  <a
-                    href={`https://wa.me/${whatsappNumber}?text=${encodeURIComponent(
-                      "Hi! I want to order merch from Bliximstraat."
-                    )}`}
-                    className="inline-flex items-center gap-2 rounded-xl border border-white/15 bg-white/5 px-4 py-2 text-sm hover:bg-white/10 transition"
+            {/* Category tabs */}
+            <div className="flex items-center gap-1 mb-10">
+              {CATEGORIES.map((cat) => {
+                const isActive = activeCategory === cat;
+                return (
+                  <button
+                    key={cat}
+                    onClick={() => {
+                      setActiveCategory(cat);
+                      setActiveIndex(0);
+                    }}
+                    className="relative px-5 py-2 text-xs font-medium uppercase tracking-[0.18em] rounded-full transition-all duration-200"
+                    style={{
+                      color: isActive ? "#000" : "rgba(255,255,255,0.45)",
+                      background: isActive ? "#fff" : "transparent",
+                      border: isActive
+                        ? "1px solid #fff"
+                        : "1px solid rgba(255,255,255,0.12)",
+                    }}
                   >
-                    <MessageCircle className="h-4 w-4" />
-                    WhatsApp Order
-                  </a>
-                </div>
-              </motion.div>
-
-              {/* CATEGORIES */}
-              <div className="mt-8 flex flex-wrap gap-2">
-                {categories.map((c) => (
-                  <span
-                    key={c}
-                    className="rounded-full border border-white/15 bg-black/30 px-3 py-1 text-xs text-white/80"
-                  >
-                    {c}
-                  </span>
-                ))}
-              </div>
-            </div>
-          </section>
-
-          {/* NEW MERCH COMING SOON BANNER */}
-          <section className="px-6 pb-8">
-            <div className="max-w-6xl mx-auto">
-              <motion.div
-                initial={{ opacity: 0, y: 18 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ duration: 0.4 }}
-                className="rounded-3xl border border-white/15 bg-gradient-to-r from-white/10 via-white/5 to-white/10 backdrop-blur-md px-6 py-8 md:px-10 md:py-10 text-center"
-              >
-                <div className="text-xs md:text-sm uppercase tracking-[0.35em] text-white/55 font-semibold">
-                  Bliximstraat Drop
-                </div>
-
-                <h2 className="mt-3 text-3xl md:text-5xl font-extrabold tracking-tight text-white">
-                  NEW MERCH COMING SOON!!
-                </h2>
-
-                <p className="mt-3 text-sm md:text-base text-white/70 max-w-2xl mx-auto">
-                  Fresh pieces are on the way. Keep an eye on this page and hit
-                  us on WhatsApp if you want first dibs before the next drop
-                  disappears into the chaos.
-                </p>
-              </motion.div>
-            </div>
-          </section>
-
-          {/* ERRORS / EMPTY / LOADING */}
-          <section className="px-6 pb-6">
-            <div className="max-w-6xl mx-auto">
-              {loading && (
-                <div className="rounded-2xl border border-white/10 bg-black/35 backdrop-blur-sm p-6 text-white/70">
-                  Loading merch...
-                </div>
-              )}
-
-              {error && (
-                <div className="rounded-2xl border border-red-500/30 bg-red-500/10 px-5 py-4 text-sm text-red-200">
-                  Failed to load merch: {error}
-                </div>
-              )}
-
-              {!loading && !error && products.length === 0 && (
-                <div className="rounded-2xl border border-white/10 bg-black/35 backdrop-blur-sm p-6 text-white/70">
-                  No merch products yet. Add some in the Admin panel.
-                </div>
-              )}
-            </div>
-          </section>
-
-          {/* PRODUCTS */}
-          <section className="px-6 pb-24">
-            <div className="max-w-6xl mx-auto grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-              {products.map((p, i) => (
-                <motion.button
-                  key={p.id}
-                  type="button"
-                  initial={{ opacity: 0, y: 18 }}
-                  whileInView={{ opacity: 1, y: 0 }}
-                  viewport={{ once: true }}
-                  transition={{ duration: 0.35, delay: i * 0.03 }}
-                  onClick={() => openModal(p)}
-                  className="text-left rounded-2xl border border-white/10 bg-black/35 overflow-hidden backdrop-blur-sm flex flex-col hover:border-white/20 hover:bg-black/40 transition"
-                >
-                  <div className="relative aspect-square">
-                    <img
-                      src={p.imageUrl}
-                      alt={p.name}
-                      className="h-full w-full object-cover"
-                      loading="lazy"
-                    />
-                    {p.isPreorder && (
-                      <span className="absolute left-3 top-3 rounded-full border border-white/20 bg-black/50 px-3 py-1 text-xs text-white/80 backdrop-blur">
-                        Preorder
+                    {cat}
+                    {cat !== "All" && (
+                      <span
+                        className="ml-2 text-[9px]"
+                        style={{ color: isActive ? "rgba(0,0,0,0.4)" : "rgba(255,255,255,0.25)" }}
+                      >
+                        {MERCH.filter((m) => m.category === cat).length}
                       </span>
                     )}
-                  </div>
-
-                  <div className="p-5 flex flex-col flex-1">
-                    <div>
-                      <h3 className="font-semibold text-lg leading-tight">
-                        {p.name}
-                      </h3>
-
-                      <p className="text-xs text-white/60 mt-1">{p.category}</p>
-
-                      <div className="mt-2 text-xl font-bold text-white tracking-tight">
-                        {formatZar(p.priceCents)}
-                      </div>
-
-                      <div className="text-xs text-white/50 mt-1">
-                        Tap to order
-                      </div>
-                    </div>
-
-                    <div className="mt-3 min-h-[24px]">
-                      {p.note ? (
-                        <p className="text-sm text-white/70">{p.note}</p>
-                      ) : (
-                        <p className="text-sm text-transparent select-none">
-                          placeholder
-                        </p>
-                      )}
-                    </div>
-
-                    <div className="mt-auto pt-5">
-                      <div className="inline-flex items-center gap-2 rounded-xl border border-white/15 bg-white/5 px-4 py-2 text-sm hover:bg-white/10 transition">
-                        <ShoppingBag className="h-4 w-4" />
-                        Order via WhatsApp
-                      </div>
-                    </div>
-                  </div>
-                </motion.button>
-              ))}
+                  </button>
+                );
+              })}
             </div>
-          </section>
+
+            {/* Carousel */}
+            {filtered.length > 0 && item ? (
+              <div className="select-none">
+                {/* Main card */}
+                <div
+                  ref={trackRef}
+                  className="relative rounded-2xl overflow-hidden cursor-grab active:cursor-grabbing"
+                  style={{
+                    border: "1px solid rgba(255,255,255,0.08)",
+                    background: "rgba(255,255,255,0.02)",
+                  }}
+                  onPointerDown={onPointerDown}
+                  onPointerMove={onPointerMove}
+                  onPointerUp={onPointerUp}
+                  onPointerCancel={onPointerUp}
+                >
+                  <div className="flex flex-col md:flex-row">
+
+                    {/* Image panel */}
+                    <div
+                      className="md:w-1/2 aspect-square md:aspect-auto md:min-h-[480px] relative overflow-hidden flex-shrink-0"
+                      style={{ borderRight: "1px solid rgba(255,255,255,0.05)" }}
+                    >
+                      <img
+                        key={item.id}
+                        src={item.image}
+                        alt={item.name}
+                        className="w-full h-full object-cover transition-opacity duration-300"
+                        draggable={false}
+                      />
+                      {item.isPreorder && (
+                        <span
+                          className="absolute top-5 left-5 px-3 py-1 text-[10px] font-medium uppercase tracking-[0.15em] text-white rounded-full"
+                          style={{
+                            background: "rgba(255,0,144,0.15)",
+                            border: "1px solid rgba(255,0,144,0.3)",
+                          }}
+                        >
+                          Pre-order
+                        </span>
+                      )}
+                      {/* Slide counter badge */}
+                      <span
+                        className="absolute bottom-5 left-5 px-3 py-1 text-[10px] font-medium text-white/50 rounded-full"
+                        style={{ background: "rgba(0,0,0,0.5)", border: "1px solid rgba(255,255,255,0.08)" }}
+                      >
+                        {activeIndex + 1} / {filtered.length}
+                      </span>
+                    </div>
+
+                    {/* Info panel */}
+                    <div className="md:w-1/2 p-8 md:p-10 flex flex-col justify-between">
+                      <div>
+                        <p className="text-[10px] uppercase tracking-[0.22em] text-white/30 mb-3">
+                          {item.category}
+                        </p>
+                        <h2 className="text-3xl md:text-4xl font-light tracking-tight text-white leading-tight">
+                          {item.name}
+                        </h2>
+                        <p className="mt-4 text-sm text-white/50 leading-relaxed max-w-sm">
+                          {item.description}
+                        </p>
+
+                        {/* Sizes */}
+                        <div className="mt-8">
+                          <p className="text-[10px] uppercase tracking-[0.22em] text-white/30 mb-3">
+                            Sizes
+                          </p>
+                          <div className="flex flex-wrap gap-2">
+                            {item.sizes.map((size) => (
+                              <span
+                                key={size}
+                                className="px-3 py-1.5 text-xs font-medium text-white/70 rounded-md"
+                                style={{ border: "1px solid rgba(255,255,255,0.14)" }}
+                              >
+                                {size}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="mt-10">
+                        <div className="flex items-baseline gap-2 mb-6">
+                          <span className="text-4xl font-light text-white">R{item.priceZar}</span>
+                          <span className="text-xs text-white/30">ZAR</span>
+                        </div>
+
+                        <a
+                          href={buildWhatsappLink(item)}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="block w-full text-center py-3.5 text-sm font-medium text-black bg-white rounded-lg hover:bg-white/90 transition-colors"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          Order via WhatsApp
+                        </a>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Navigation row */}
+                <div className="mt-6 flex items-center justify-between">
+                  {/* Prev / Next arrows */}
+                  <div className="flex items-center gap-3">
+                    <button
+                      onClick={prev}
+                      disabled={activeIndex === 0}
+                      className="w-10 h-10 flex items-center justify-center rounded-full transition-all duration-200 disabled:opacity-20"
+                      style={{ border: "1px solid rgba(255,255,255,0.14)" }}
+                      aria-label="Previous"
+                    >
+                      <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                        <path d="M10 3L5 8L10 13" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                      </svg>
+                    </button>
+                    <button
+                      onClick={next}
+                      disabled={activeIndex === filtered.length - 1}
+                      className="w-10 h-10 flex items-center justify-center rounded-full transition-all duration-200 disabled:opacity-20"
+                      style={{ border: "1px solid rgba(255,255,255,0.14)" }}
+                      aria-label="Next"
+                    >
+                      <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                        <path d="M6 3L11 8L6 13" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                      </svg>
+                    </button>
+                  </div>
+
+                  {/* Dot indicators */}
+                  <div className="flex items-center gap-2">
+                    {filtered.map((_, i) => (
+                      <button
+                        key={i}
+                        onClick={() => goTo(i)}
+                        className="transition-all duration-300 rounded-full"
+                        style={{
+                          width: i === activeIndex ? "24px" : "6px",
+                          height: "6px",
+                          background: i === activeIndex ? "#fff" : "rgba(255,255,255,0.2)",
+                        }}
+                        aria-label={`Go to item ${i + 1}`}
+                      />
+                    ))}
+                  </div>
+
+                  {/* Thumbnail strip */}
+                  <div className="hidden sm:flex items-center gap-2">
+                    {filtered.map((m, i) => (
+                      <button
+                        key={m.id}
+                        onClick={() => goTo(i)}
+                        className="w-12 h-12 rounded-lg overflow-hidden transition-all duration-200 flex-shrink-0"
+                        style={{
+                          border: i === activeIndex
+                            ? "1.5px solid rgba(255,255,255,0.6)"
+                            : "1.5px solid rgba(255,255,255,0.1)",
+                          opacity: i === activeIndex ? 1 : 0.45,
+                        }}
+                        aria-label={m.name}
+                      >
+                        <img src={m.image} alt={m.name} className="w-full h-full object-cover" draggable={false} />
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div
+                className="rounded-xl p-14 text-center"
+                style={{ border: "1px solid rgba(255,255,255,0.07)" }}
+              >
+                <div className="text-white/25 text-base font-light">No items in this category yet.</div>
+              </div>
+            )}
+
+            <p className="mt-12 text-xs text-white/25 text-center">
+              All orders handled via WhatsApp. Delivery within South Africa.
+            </p>
+          </div>
         </main>
 
         <Footer />
       </div>
-
-      {/* ORDER MODAL */}
-      {selected && (
-        <div
-          className="fixed inset-0 z-[10050] flex items-end sm:items-center justify-center p-4"
-          role="dialog"
-          aria-modal="true"
-        >
-          <div className="absolute inset-0 bg-black/70" onClick={closeModal} />
-
-          <div className="relative w-full max-w-xl rounded-2xl border border-white/10 bg-black/70 backdrop-blur-md shadow-[0_20px_60px_rgba(0,0,0,0.5)] overflow-hidden">
-            <div className="flex items-start justify-between gap-4 p-5 border-b border-white/10">
-              <div>
-                <div className="text-white font-semibold text-lg">
-                  {selected.name}
-                </div>
-                <div className="text-white/60 text-sm">{selected.category}</div>
-                <div className="mt-1 text-white font-semibold">
-                  {formatZar(selected.priceCents)}
-                </div>
-              </div>
-
-              <button
-                type="button"
-                onClick={closeModal}
-                className="rounded-xl border border-white/15 bg-white/5 p-2 hover:bg-white/10 transition"
-                aria-label="Close"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </div>
-
-            <div className="p-5">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <label className="text-sm text-white/80">
-                  Name *
-                  <input
-                    className="mt-1 w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-white outline-none focus:border-white/25"
-                    value={order.name}
-                    onChange={(e) =>
-                      setOrder((s) => ({ ...s, name: e.target.value }))
-                    }
-                    placeholder="e.g. Pieter"
-                  />
-                </label>
-
-                <label className="text-sm text-white/80">
-                  Phone number *
-                  <input
-                    className="mt-1 w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-white outline-none focus:border-white/25"
-                    value={order.number}
-                    onChange={(e) =>
-                      setOrder((s) => ({ ...s, number: e.target.value }))
-                    }
-                    placeholder="e.g. 0721234567"
-                  />
-                </label>
-
-                <label className="text-sm text-white/80 sm:col-span-2">
-                  Delivery address *
-                  <textarea
-                    className="mt-1 w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-white outline-none focus:border-white/25 resize-none"
-                    rows={3}
-                    value={order.address}
-                    onChange={(e) =>
-                      setOrder((s) => ({ ...s, address: e.target.value }))
-                    }
-                    placeholder="Street, suburb, city, province"
-                  />
-                </label>
-
-                <label className="text-sm text-white/80 sm:col-span-2">
-                  Size *
-                  <input
-                    className="mt-1 w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-white outline-none focus:border-white/25"
-                    value={order.size}
-                    onChange={(e) =>
-                      setOrder((s) => ({ ...s, size: e.target.value }))
-                    }
-                    placeholder="e.g. S / M / L / XL (or N/A)"
-                  />
-                </label>
-              </div>
-
-              {orderError && (
-                <div className="mt-4 rounded-2xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-200">
-                  {orderError}
-                </div>
-              )}
-
-              <div className="mt-5 flex gap-2 justify-end">
-                <button
-                  type="button"
-                  onClick={closeModal}
-                  className="rounded-xl border border-white/15 bg-white/5 px-4 py-2 text-sm hover:bg-white/10 transition"
-                >
-                  Cancel
-                </button>
-
-                <button
-                  type="button"
-                  onClick={orderNow}
-                  className="rounded-xl border border-white/15 bg-white/10 px-4 py-2 text-sm hover:bg-white/15 transition"
-                >
-                  Order now
-                </button>
-              </div>
-
-              <div className="mt-3 text-xs text-white/50">
-                Tapping “Order now” opens WhatsApp with your details pre-filled.
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

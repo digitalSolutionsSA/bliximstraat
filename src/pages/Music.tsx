@@ -1,1046 +1,514 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Navbar from "../components/layout/Navbar";
 import Footer from "../components/layout/Footer";
-import { supabase } from "../lib/supabase";
+import VideoBackground from "../components/layout/VideoBackground";
+import { SONGS, hasVideo } from "../data/songs";
+import type { Song } from "../data/songs";
 
-// ✅ Cart
-import { useCart } from "../contexts/CartContext";
+// ── Types ─────────────────────────────────────────────────────────────────────
 
-// ✅ Owned overlay image
-import songOwnedBadge from "../assets/song-owned.png";
+type ReleaseType = "Single" | "Album";
 
-const DEBUG_OWNERSHIP = false;
-
-// Sidebar label (as per your screenshot)
-const SIDEBAR_SINGLES_LABEL = "Singles";
-
-// What the section title was previously
-const SINGLES_LABEL = "Songs";
-
-/**
- * ✅ IMPORTANT:
- * Set this to the Supabase Storage bucket where you upload song/album covers.
- * Examples: "covers", "music-covers", "album-covers"
- */
-const COVER_BUCKET = "covers";
-
-/**
- * ✅ A local fallback image (put this file in /public).
- * If you don’t have one yet, add something like:
- * public/fallback-cover.png
- */
-const FALLBACK_COVER = "/fallback-cover.png";
-
-/**
- * ✅ Normalize cover URLs:
- * - If DB stores a full https:// URL -> use as-is
- * - If DB stores "/something.png" -> use as-is
- * - If DB stores a storage path like "x.png" or "covers/x.png" -> convert to public URL
- * - Always encode URL to avoid spaces/special chars breaking <img>
- */
-function resolvePublicUrl(maybeUrl: string | null | undefined, bucket: string) {
-  if (!maybeUrl) return "";
-  const v = maybeUrl.trim();
-  if (!v) return "";
-
-  // Already a full URL (public or signed)
-  if (/^https?:\/\//i.test(v)) return encodeURI(v);
-
-  // Local/public assets path
-  if (v.startsWith("/")) return encodeURI(v);
-
-  // If someone stored "covers/filename.jpg" instead of "filename.jpg"
-  const path = v.startsWith(`${bucket}/`) ? v.slice(bucket.length + 1) : v;
-
-  const { data } = supabase.storage.from(bucket).getPublicUrl(path);
-  return data?.publicUrl ? encodeURI(data.publicUrl) : "";
-}
-
-/**
- * ✅ Prevent broken-image icons:
- * - Swap to fallback once
- * - Avoid infinite onError loops
- */
-function onImgError(e: React.SyntheticEvent<HTMLImageElement, Event>) {
-  const img = e.currentTarget;
-  if (img.dataset.fallbackApplied === "1") return;
-  img.dataset.fallbackApplied = "1";
-  img.src = FALLBACK_COVER;
-}
-
-/* -------------------------------------------
-   PLATFORM EMBEDS (Spotify / Apple / YouTube)
-------------------------------------------- */
-type PlatformEmbed = {
+type Release = {
   id: string;
-  platform: "Spotify" | "Apple Music" | "YouTube";
   title: string;
-  src: string;
+  type: ReleaseType;
+  year: string;
+  cover: string | undefined;
+  youtubeUrl: string;
+  tracks: Song[];
 };
 
-const PLATFORM_EMBEDS: PlatformEmbed[] = [
+type FilterTab = "All" | "Singles" | "Albums";
+
+// ── Build releases list ───────────────────────────────────────────────────────
+
+function useReleases(songs: Song[]): Release[] {
+  return useMemo(() => {
+    const releases: Release[] = [];
+    const albumMap = new Map<string, Song[]>();
+    const albumOrder: string[] = [];
+
+    for (const song of songs) {
+      if (song.album) {
+        if (!albumMap.has(song.album)) {
+          albumOrder.push(song.album);
+          albumMap.set(song.album, []);
+        }
+        albumMap.get(song.album)!.push(song);
+      } else {
+        releases.push({
+          id: song.id,
+          title: song.title,
+          type: "Single",
+          year: song.year,
+          cover: song.coverUrl,
+          youtubeUrl: song.youtubeUrl,
+          tracks: [song],
+        });
+      }
+    }
+
+    for (const albumName of albumOrder) {
+      const tracks = albumMap.get(albumName)!;
+      releases.push({
+        id: `album-${albumName}`,
+        title: albumName,
+        type: "Album",
+        year: tracks[0].year,
+        cover: tracks[0].coverUrl,
+        youtubeUrl: tracks.find(s => hasVideo(s))?.youtubeUrl ?? YT_CHANNEL,
+        tracks,
+      });
+    }
+
+    // newest first by year
+    return releases.sort((a, b) => Number(b.year) - Number(a.year));
+  }, [songs]);
+}
+
+// ── Constants ─────────────────────────────────────────────────────────────────
+
+const YT_CHANNEL = "https://www.youtube.com/channel/UCaRgHj3J8RjDuS_eyZXdepA";
+
+const PLATFORMS = [
   {
-    id: "spotify",
-    platform: "Spotify",
-    title: "BliximStraat on Spotify",
-    src: "https://open.spotify.com/embed/artist/0Ch8nVFZCWFF95IXTcgLgT",
+    label: "Spotify",
+    href: "https://open.spotify.com/artist/0Ch8nVFZCWFF95IXTcgLgT",
+    color: "#1DB954",
+    icon: (
+      <svg viewBox="0 0 24 24" className="w-5 h-5" fill="currentColor">
+        <path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z"/>
+      </svg>
+    ),
   },
   {
-    id: "apple",
-    platform: "Apple Music",
-    title: "BliximStraat – Cherry En Bubble Gum Milkshake",
-    src: "https://embed.music.apple.com/us/song/cherry-en-bubble-gum-milkshake/1855232589",
+    label: "Apple Music",
+    href: "https://music.apple.com/us/artist/blixim-straat/1761419580",
+    color: "#fff",
+    icon: (
+      <svg viewBox="0 0 24 24" className="w-5 h-5" fill="currentColor">
+        <path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.8-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z"/>
+      </svg>
+    ),
   },
   {
-    id: "youtube",
-    platform: "YouTube",
-    title: "Latest on YouTube",
-    src: "https://www.youtube.com/embed/dnzYfB9368U",
+    label: "YouTube",
+    href: YT_CHANNEL,
+    color: "#FF0000",
+    icon: (
+      <svg viewBox="0 0 24 24" className="w-5 h-5" fill="currentColor">
+        <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/>
+      </svg>
+    ),
+  },
+  {
+    label: "TikTok",
+    href: "https://www.tiktok.com/@bliximstraat",
+    color: "#fff",
+    icon: (
+      <svg viewBox="0 0 24 24" className="w-5 h-5" fill="currentColor">
+        <path d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-2.88 2.5 2.89 2.89 0 0 1-2.89-2.89 2.89 2.89 0 0 1 2.89-2.89c.28 0 .54.04.79.1V9.01a6.33 6.33 0 0 0-.79-.05 6.34 6.34 0 0 0-6.34 6.34 6.34 6.34 0 0 0 6.34 6.34 6.34 6.34 0 0 0 6.33-6.34V8.69a8.18 8.18 0 0 0 4.78 1.52V6.75a4.85 4.85 0 0 1-1.01-.06z"/>
+      </svg>
+    ),
   },
 ];
 
-const platformBadgeClass = (p: PlatformEmbed["platform"]) => {
-  switch (p) {
-    case "Spotify":
-      return "bg-green-500/10 border-green-400/20 text-green-100";
-    case "Apple Music":
-      return "bg-pink-500/10 border-pink-400/20 text-pink-100";
-    case "YouTube":
-      return "bg-red-500/10 border-red-400/20 text-red-100";
-    default:
-      return "bg-white/10 border-white/15 text-white";
-  }
-};
+// ── Animation CSS ─────────────────────────────────────────────────────────────
 
-/* -------------------------------------------
-   TYPES
-------------------------------------------- */
-type SongRow = {
-  id: string;
-  title: string;
-  artist: string;
-  release_date: string | null;
-  price_cents: number;
-  cover_url: string | null;
-  audio_url: string | null;
-  created_at?: string;
+const ANIM_CSS = `
+@keyframes cardSlideInRight {
+  0%   { opacity:0; transform:translateX(80px) skewX(-4deg) scale(0.92); filter:blur(8px) brightness(2) hue-rotate(30deg); }
+  40%  { opacity:1; transform:translateX(-8px) skewX(1.5deg) scale(1.01); filter:blur(0) brightness(1.15) hue-rotate(0deg); }
+  65%  { transform:translateX(4px) skewX(-0.5deg) scale(0.995); filter:brightness(1); }
+  100% { opacity:1; transform:translateX(0) skewX(0) scale(1); filter:none; }
+}
+@keyframes cardSlideInLeft {
+  0%   { opacity:0; transform:translateX(-80px) skewX(4deg) scale(0.92); filter:blur(8px) brightness(2) hue-rotate(-30deg); }
+  40%  { opacity:1; transform:translateX(8px) skewX(-1.5deg) scale(1.01); filter:blur(0) brightness(1.15) hue-rotate(0deg); }
+  65%  { transform:translateX(-4px) skewX(0.5deg) scale(0.995); filter:brightness(1); }
+  100% { opacity:1; transform:translateX(0) skewX(0) scale(1); filter:none; }
+}
+@keyframes cardFadeIn {
+  from { opacity:0; transform:scale(0.95); filter:blur(6px); }
+  to   { opacity:1; transform:scale(1);    filter:none; }
+}
+.card-in-right { animation: cardSlideInRight 0.5s cubic-bezier(0.22,1,0.36,1) both; }
+.card-in-left  { animation: cardSlideInLeft  0.5s cubic-bezier(0.22,1,0.36,1) both; }
+.card-in       { animation: cardFadeIn       0.4s cubic-bezier(0.22,1,0.36,1) both; }
+`;
 
-  album_id?: string | null;
-  track_number?: number | null;
-};
+// ── Release Card ──────────────────────────────────────────────────────────────
 
-type AlbumRow = {
-  id: string;
-  title: string | null;
-  created_at?: string | null;
-};
-
-type SongCard = {
-  id: string;
-  title: string;
-  artist: string;
-  year: string;
-  coverUrl: string;
-  audioUrl: string | null;
-  releaseDate: string | null;
-  priceCents: number;
-
-  // KEEP for categorisation only (no ID changes)
-  albumId?: string | null;
-  trackNumber?: number | null;
-};
-
-const formatZar = (cents: number) =>
-  new Intl.NumberFormat("en-ZA", {
-    style: "currency",
-    currency: "ZAR",
-    minimumFractionDigits: 2,
-  }).format((cents || 0) / 100);
-
-const formatReleaseDate = (isoDate: string | null) => {
-  if (!isoDate) return "—";
-  const d = new Date(`${isoDate}T00:00:00`);
-  return Number.isNaN(d.getTime())
-    ? isoDate
-    : d.toLocaleDateString("en-ZA", {
-        year: "numeric",
-        month: "short",
-        day: "2-digit",
-      });
-};
-
-const OwnedOverlay = ({ src, alt }: { src: string; alt: string }) => (
-  <div className="absolute inset-0 z-20">
-    <div className="absolute inset-0 bg-black/35 backdrop-blur-sm rounded-[inherit]" />
-    <img
-      src={src}
-      alt={alt}
-      className="absolute inset-0 w-full h-full object-contain scale-[1.2] opacity-95 pointer-events-none"
-      loading="lazy"
-      onError={onImgError}
-    />
-  </div>
-);
-
-function SignInFirstModal({
-  open,
-  onClose,
-  onGoSignIn,
-}: {
-  open: boolean;
-  onClose: () => void;
-  onGoSignIn: () => void;
-}) {
-  if (!open) return null;
-
+function ReleaseCard({ release, isActive }: { release: Release; isActive: boolean }) {
   return (
-    <div className="fixed inset-0 z-[120]">
-      <button
-        type="button"
-        aria-label="Close"
-        className="absolute inset-0 bg-black/70"
-        onClick={onClose}
-      />
-      <div className="absolute left-1/2 top-1/2 w-[92vw] max-w-md -translate-x-1/2 -translate-y-1/2">
-        <div className="rounded-2xl border border-white/15 bg-black/80 backdrop-blur-xl shadow-2xl overflow-hidden text-white">
-          <div className="px-5 py-4 border-b border-white/10">
-            <div className="text-lg font-semibold">Sign in first</div>
-            <div className="mt-1 text-sm text-white/70">
-              You need to be signed in to buy songs and unlock full playback.
-            </div>
+    <div
+      className="rounded-2xl overflow-hidden flex flex-col transition-all duration-500 select-none"
+      style={{
+        background: "rgba(20,12,30,0.95)",
+        border: `1px solid ${isActive ? "rgba(255,0,144,0.25)" : "rgba(255,255,255,0.06)"}`,
+        boxShadow: isActive ? "0 0 60px rgba(255,0,144,0.12), 0 20px 60px rgba(0,0,0,0.6)" : "0 8px 30px rgba(0,0,0,0.5)",
+      }}
+    >
+      {/* Cover art */}
+      <div className="relative w-full aspect-square overflow-hidden">
+        {release.cover ? (
+          <img src={release.cover} alt={release.title}
+            className="w-full h-full object-cover block" draggable={false} />
+        ) : (
+          <div className="w-full h-full flex items-center justify-center" style={{ background: "rgba(255,255,255,0.03)" }}>
+            <span className="text-7xl text-white/10">♪</span>
           </div>
+        )}
 
-          <div className="px-5 py-4 flex gap-2">
-            <button
-              type="button"
-              className="flex-1 rounded-xl border border-white/15 bg-white/10 py-2 text-sm font-semibold hover:bg-white/15"
-              onClick={onClose}
+        {/* Type badge */}
+        <span
+          className="absolute top-3 left-3 px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.15em] rounded-full"
+          style={{ background: "rgba(255,0,144,0.25)", border: "1px solid rgba(255,0,144,0.4)", color: "#FF0090" }}
+        >
+          {release.type}
+        </span>
+      </div>
+
+      {/* Info below cover */}
+      <div className="px-4 pt-4 pb-3">
+        <h3 className="text-base font-bold text-white leading-tight truncate mb-0.5">{release.title}</h3>
+        <p className="text-xs text-white/40 mb-3">{release.year}</p>
+
+        {/* Small circular streaming icons */}
+        <div className="flex items-center gap-2">
+          {PLATFORMS.slice(0, 3).map(p => (
+            <a key={p.label} href={p.label === "YouTube" ? release.youtubeUrl : p.href}
+              target="_blank" rel="noreferrer"
+              className="w-8 h-8 rounded-full flex items-center justify-center transition-transform duration-200 hover:scale-110"
+              style={{ background: "rgba(255,255,255,0.08)", color: p.color, border: "1px solid rgba(255,255,255,0.1)" }}
+              aria-label={p.label}
             >
-              Not now
-            </button>
-            <button
-              type="button"
-              className="flex-1 rounded-xl bg-white text-black py-2 text-sm font-semibold hover:bg-white/90"
-              onClick={onGoSignIn}
-            >
-              Sign in
-            </button>
-          </div>
+              <span className="w-4 h-4 flex items-center justify-center [&>svg]:w-4 [&>svg]:h-4">
+                {p.icon}
+              </span>
+            </a>
+          ))}
         </div>
       </div>
+
+      {/* Album track list — only shown on album cards */}
+      {release.type === "Album" && release.tracks.length > 0 && (
+        <>
+          <div className="mx-4 h-px" style={{ background: "rgba(255,255,255,0.06)" }} />
+          <div className="px-3 py-2">
+            {release.tracks.map((song, i) => (
+              <a
+                key={song.id}
+                href={hasVideo(song) ? song.youtubeUrl : YT_CHANNEL}
+                target="_blank"
+                rel="noreferrer"
+                className="group flex items-center gap-2 px-2 py-1 rounded-md transition-colors"
+                onMouseEnter={e => { (e.currentTarget as HTMLAnchorElement).style.background = "rgba(255,255,255,0.05)"; }}
+                onMouseLeave={e => { (e.currentTarget as HTMLAnchorElement).style.background = ""; }}
+              >
+                <span className="shrink-0 w-4 text-right tabular-nums"
+                  style={{ fontSize: "9px", color: "rgba(255,255,255,0.25)" }}>{i + 1}</span>
+                <span className="flex-1 truncate group-hover:text-white/90 transition-colors"
+                  style={{ fontSize: "10px", color: "rgba(255,255,255,0.55)" }}>{song.title}</span>
+                {hasVideo(song)
+                  ? <span className="shrink-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                      style={{ fontSize: "9px", color: "#FF3B3B" }}>▶</span>
+                  : <span style={{ fontSize: "9px", color: "rgba(255,255,255,0.18)" }}>·</span>
+                }
+              </a>
+            ))}
+          </div>
+        </>
+      )}
     </div>
   );
 }
 
-type ViewMode =
-  | { kind: "singles" }
-  | { kind: "album"; albumId: string };
+// ── Main Page ─────────────────────────────────────────────────────────────────
 
 export default function Music() {
-  const [songs, setSongs] = useState<SongRow[]>([]);
-  const [albums, setAlbums] = useState<AlbumRow[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const allReleases = useReleases(SONGS);
+  const [filter,  setFilter]  = useState<FilterTab>("All");
+  const [search,  setSearch]  = useState("");
+  const [index,   setIndex]   = useState(0);
+  const [animKey, setAnimKey] = useState(0);
+  const [dir,     setDir]     = useState<"right"|"left"|"none">("none");
+  const dragging  = useRef(false);
+  const dragStart = useRef(0);
+  const dragDelta = useRef(0);
 
-  const [userId, setUserId] = useState<string | null>(null);
+  const filtered = useMemo(() => {
+    let list = allReleases;
+    if (filter === "Singles") list = list.filter(r => r.type === "Single");
+    if (filter === "Albums")  list = list.filter(r => r.type === "Album");
+    if (search.trim()) {
+      const q = search.toLowerCase();
+      list = list.filter(r => r.title.toLowerCase().includes(q));
+    }
+    return list;
+  }, [allReleases, filter, search]);
 
-  // ✅ Cart
-  const { addItem } = useCart();
+  const counts = useMemo(() => ({
+    All:     allReleases.length,
+    Singles: allReleases.filter(r => r.type === "Single").length,
+    Albums:  allReleases.filter(r => r.type === "Album").length,
+  }), [allReleases]);
 
-  // ✅ Owned state
-  const [ownedSongIds, setOwnedSongIds] = useState<Set<string>>(new Set());
-  const [loadingOwned, setLoadingOwned] = useState(false);
-
-  // Used to manually force reload of owned purchases (e.g. after payment return)
-  const [ownedRefreshNonce, setOwnedRefreshNonce] = useState(0);
-
-  // Payment confirm state (when we return from Yoco but userId may not be ready yet)
-  const [pendingConfirmOrderId, setPendingConfirmOrderId] = useState<string | null>(null);
-  const confirmingRef = useRef(false);
-
-  // Sign-in modal for “add to cart” when not signed in
-  const [signInModalOpen, setSignInModalOpen] = useState(false);
-
-  const audioRef = useRef<HTMLAudioElement | null>(null);
-  const demoStopTimerRef = useRef<number | null>(null);
-
-  const [nowPlayingSongId, setNowPlayingSongId] = useState<string | null>(null);
-  const playedSinglesThisSessionRef = useRef<Set<string>>(new Set());
-  const SINGLE_DEMO_SECONDS = 15;
-
-  const [lockedSongId, setLockedSongId] = useState<string | null>(null);
-  const [toast, setToast] = useState<string | null>(null);
-
-  // ✅ Sidebar view selection (new, layout only)
-  const [view, setView] = useState<ViewMode>({ kind: "singles" });
-
-  const showToast = (msg: string) => {
-    setToast(msg);
-    window.setTimeout(() => setToast(null), 2200);
-  };
-
-  const refreshOwned = () => setOwnedRefreshNonce((n) => n + 1);
-
-  // ✅ Read payment return params once. If success, queue confirmation.
+  // clamp index when filter changes
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const statusRaw = params.get("payment");
-    const orderId = params.get("order_id");
+    setIndex(i => Math.min(i, Math.max(filtered.length - 1, 0)));
+  }, [filtered.length]);
 
-    if (!statusRaw) return;
+  const navigate = useCallback((next: number) => {
+    if (next < 0 || next >= filtered.length || next === index) return;
+    setDir(next > index ? "right" : "left");
+    setAnimKey(k => k + 1);
+    setIndex(next);
+  }, [index, filtered.length]);
 
-    const status = statusRaw.toLowerCase();
+  const prev = () => navigate(index - 1);
+  const next = () => navigate(index + 1);
 
-    if (status === "success") {
-      showToast("Payment successful ✅ Finalizing ownership…");
-      if (orderId) setPendingConfirmOrderId(orderId);
-      else showToast("Payment returned without order_id. That's… unhelpful.");
-    } else if (status === "cancel" || status === "cancelled") {
-      showToast("Payment cancelled.");
-    } else if (status === "failed") {
-      showToast("Payment failed. Try again.");
-    }
-
-    // Clean URL
-    params.delete("payment");
-    params.delete("order_id");
-
-    const next = `${window.location.pathname}${params.toString() ? `?${params.toString()}` : ""}`;
-    window.history.replaceState({}, "", next);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  // ✅ Confirm payment once userId is available (and we have an order id)
+  // keyboard nav
   useEffect(() => {
-    if (!pendingConfirmOrderId) return;
-    if (!userId) return;
-    if (confirmingRef.current) return;
+    const h = (e: KeyboardEvent) => {
+      if (e.key === "ArrowLeft")  prev();
+      if (e.key === "ArrowRight") next();
+    };
+    window.addEventListener("keydown", h);
+    return () => window.removeEventListener("keydown", h);
+  });
 
-    confirmingRef.current = true;
-
-    (async () => {
-      try {
-        const res = await fetch("/.netlify/functions/confirm-payment", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            order_id: pendingConfirmOrderId,
-            user_id: userId,
-          }),
-        });
-
-        const data = await res.json().catch(() => null);
-
-        if (!res.ok) {
-          console.error("confirm-payment failed:", data);
-          showToast("Could not finalize ownership. Check server logs.");
-          return;
-        }
-
-        if (data?.paid) {
-          showToast("Ownership unlocked ✅");
-          refreshOwned();
-          window.setTimeout(refreshOwned, 800);
-          window.setTimeout(refreshOwned, 1800);
-        } else {
-          const s = data?.status ? String(data.status) : "pending";
-          showToast(`Payment still ${s}. Refresh in a moment.`);
-          window.setTimeout(() => refreshOwned(), 1500);
-        }
-      } catch (e) {
-        console.error(e);
-        showToast("Finalize ownership failed. Try refresh.");
-      } finally {
-        confirmingRef.current = false;
-        setPendingConfirmOrderId(null);
-      }
-    })();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pendingConfirmOrderId, userId]);
-
-  const clearAllTimers = () => {
-    if (demoStopTimerRef.current) window.clearTimeout(demoStopTimerRef.current);
-    demoStopTimerRef.current = null;
+  // drag/swipe
+  const onPointerDown = (e: React.PointerEvent) => {
+    dragging.current  = true;
+    dragStart.current = e.clientX;
+    dragDelta.current = 0;
+    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+  };
+  const onPointerMove = (e: React.PointerEvent) => {
+    if (!dragging.current) return;
+    dragDelta.current = e.clientX - dragStart.current;
+  };
+  const onPointerUp = () => {
+    if (!dragging.current) return;
+    dragging.current = false;
+    if (dragDelta.current < -50) next();
+    else if (dragDelta.current > 50) prev();
+    dragDelta.current = 0;
   };
 
-  const stopAllAudio = () => {
-    clearAllTimers();
-    const a = audioRef.current;
-    if (a) {
-      a.pause();
-      try {
-        a.currentTime = 0;
-      } catch {
-        // ignore
-      }
-    }
-    setNowPlayingSongId(null);
-  };
+  const current = filtered[index];
 
-  // -----------------------------
-  // Load songs + albums + init audio + auth
-  // -----------------------------
-  useEffect(() => {
-    const loadAll = async () => {
-      setLoading(true);
-      setError(null);
-
-      const songsRes = await supabase
-        .from("songs")
-        .select("*")
-        .eq("is_active", true)
-        .order("release_date", { ascending: false });
-
-      if (songsRes.error) {
-        setError(songsRes.error.message);
-        setSongs([]);
-        setAlbums([]);
-        setLoading(false);
-        return;
-      }
-
-      const loadedSongs = (songsRes.data ?? []) as SongRow[];
-      setSongs(loadedSongs);
-
-      // Fetch albums just for sidebar names (layout only)
-      const albumsRes = await supabase
-        .from("albums")
-        .select("id,title,created_at")
-        .order("created_at", { ascending: false });
-
-      if (albumsRes.error) {
-        // Not fatal. We'll fallback to ID labels.
-        setAlbums([]);
-      } else {
-        setAlbums((albumsRes.data ?? []) as AlbumRow[]);
-      }
-
-      setLoading(false);
-    };
-
-    const initAuth = async () => {
-      const { data, error: authErr } = await supabase.auth.getUser();
-      if (authErr) {
-        console.warn("supabase.auth.getUser() failed:", authErr);
-        setUserId(null);
-        return;
-      }
-      setUserId(data?.user?.id ?? null);
-    };
-
-    void loadAll();
-    void initAuth();
-
-    const { data: sub } = supabase.auth.onAuthStateChange((_e, s) => {
-      setUserId(s?.user?.id ?? null);
-      refreshOwned();
-    });
-
-    if (!audioRef.current) {
-      const a = new Audio();
-      a.preload = "auto";
-      a.crossOrigin = "anonymous";
-      audioRef.current = a;
-    }
-
-    return () => {
-      sub?.subscription?.unsubscribe();
-      stopAllAudio();
-      if (audioRef.current) {
-        audioRef.current.pause();
-        audioRef.current.src = "";
-        audioRef.current = null;
-      }
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  // ✅ known song ids
-  const knownSongIds = useMemo(() => new Set(songs.map((s) => s.id)), [songs]);
-
-  // -----------------------------------------
-  // ✅ Load owned song ids from user_purchases
-  // -----------------------------------------
-  useEffect(() => {
-    let cancelled = false;
-
-    const loadOwned = async () => {
-      if (!userId) {
-        setOwnedSongIds(new Set());
-        return;
-      }
-
-      setLoadingOwned(true);
-
-      const { data, error: purchasesErr } = await supabase
-        .from("user_purchases")
-        .select("user_id,song_id")
-        .eq("user_id", userId);
-
-      if (cancelled) return;
-
-      if (purchasesErr) {
-        console.error("Failed to load user purchases:", purchasesErr);
-        setOwnedSongIds(new Set());
-        setLoadingOwned(false);
-        return;
-      }
-
-      const raw = (data ?? []) as Array<{ user_id: string | null; song_id: string | null }>;
-
-      const cleanedIds = raw
-        .filter((r) => r.user_id === userId)
-        .map((r) => r.song_id)
-        .filter((id): id is string => typeof id === "string" && id.length > 0)
-        .filter((id) => knownSongIds.has(id));
-
-      if (DEBUG_OWNERSHIP) showToast(`Owned: raw=${raw.length}, cleaned=${cleanedIds.length}`);
-
-      setOwnedSongIds(new Set(cleanedIds));
-      setLoadingOwned(false);
-    };
-
-    void loadOwned();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [userId, knownSongIds, ownedRefreshNonce]);
-
-  // -----------------------------------------
-  // ✅ Realtime owned updates (insert/delete)
-  // -----------------------------------------
-  useEffect(() => {
-    if (!userId) return;
-
-    const channel = supabase
-      .channel(`user_purchases:${userId}`)
-      .on(
-        "postgres_changes",
-        { event: "INSERT", schema: "public", table: "user_purchases", filter: `user_id=eq.${userId}` },
-        (payload: any) => {
-          const songId = payload?.new?.song_id as string | undefined;
-          if (!songId) return;
-          if (!knownSongIds.has(songId)) return;
-
-          setOwnedSongIds((prev) => {
-            const next = new Set(prev);
-            next.add(songId);
-            return next;
-          });
-        }
-      )
-      .on(
-        "postgres_changes",
-        { event: "DELETE", schema: "public", table: "user_purchases", filter: `user_id=eq.${userId}` },
-        (payload: any) => {
-          const songId = payload?.old?.song_id as string | undefined;
-          if (!songId) return;
-
-          setOwnedSongIds((prev) => {
-            const next = new Set(prev);
-            next.delete(songId);
-            return next;
-          });
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [userId, knownSongIds]);
-
-  const songCards: SongCard[] = useMemo(() => {
-    return songs.map((s) => ({
-      id: s.id, // ✅ DO NOT TOUCH
-      title: s.title,
-      artist: s.artist || "BliximStraat",
-      year: s.release_date?.slice(0, 4) ?? "—",
-      coverUrl: resolvePublicUrl(s.cover_url, COVER_BUCKET),
-      audioUrl: s.audio_url ?? null,
-      releaseDate: s.release_date ?? null,
-      priceCents: s.price_cents ?? 0,
-
-      // categorisation only
-      albumId: s.album_id ?? null,
-      trackNumber: s.track_number ?? null,
-    }));
-  }, [songs]);
-
-  // Sort helper (newest -> oldest)
-  const sortByReleaseDesc = (arr: SongCard[]) => {
-    return [...arr].sort((a, b) => {
-      const ad = a.releaseDate ? new Date(`${a.releaseDate}T00:00:00`).getTime() : 0;
-      const bd = b.releaseDate ? new Date(`${b.releaseDate}T00:00:00`).getTime() : 0;
-      return bd - ad;
-    });
-  };
-
-  // Albums map (album_id -> tracks)
-  const albumsMap = useMemo(() => {
-    const m = new Map<string, SongCard[]>();
-    for (const s of songCards) {
-      if (!s.albumId) continue;
-      const key = s.albumId;
-      const prev = m.get(key) ?? [];
-      prev.push(s);
-      m.set(key, prev);
-    }
-
-    // sort each album by track_number if present, else by release date desc
-    for (const [albumId, tracks] of m.entries()) {
-      const hasTrackNumbers = tracks.some((t) => typeof t.trackNumber === "number");
-      const sorted = hasTrackNumbers
-        ? [...tracks].sort((a, b) => {
-            const an = typeof a.trackNumber === "number" ? a.trackNumber : 9999;
-            const bn = typeof b.trackNumber === "number" ? b.trackNumber : 9999;
-            if (an !== bn) return an - bn;
-            // tie-breaker: newest first
-            const ad = a.releaseDate ? new Date(`${a.releaseDate}T00:00:00`).getTime() : 0;
-            const bd = b.releaseDate ? new Date(`${b.releaseDate}T00:00:00`).getTime() : 0;
-            return bd - ad;
-          })
-        : sortByReleaseDesc(tracks);
-
-      m.set(albumId, sorted);
-    }
-
-    return m;
-  }, [songCards]);
-
-  // Singles are songs with no album_id
-  const singles = useMemo(() => {
-    return sortByReleaseDesc(songCards.filter((s) => !s.albumId));
-  }, [songCards]);
-
-  // Album list for sidebar (prefer albums table title)
-  const albumItems = useMemo(() => {
-    const albumIds = Array.from(albumsMap.keys());
-
-    const titleById = new Map<string, string>();
-    for (const a of albums) {
-      if (!a?.id) continue;
-      const title = (a.title ?? "").trim();
-      if (title) titleById.set(a.id, title);
-    }
-
-    return albumIds
-      .map((id) => ({
-        id,
-        title: titleById.get(id) ?? `Album ${id.slice(0, 6)}`,
-        trackCount: albumsMap.get(id)?.length ?? 0,
-      }))
-      .sort((a, b) => a.title.localeCompare(b.title));
-  }, [albumsMap, albums]);
-
-  // If current view albumId disappears (data changed), fallback to singles
-  useEffect(() => {
-    if (view.kind !== "album") return;
-    if (albumsMap.has(view.albumId)) return;
-    setView({ kind: "singles" });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [albumsMap]);
-
-  const displaySongs = useMemo(() => {
-    if (view.kind === "singles") return singles;
-    return albumsMap.get(view.albumId) ?? [];
-  }, [view, singles, albumsMap]);
-
-  const headerCountText = useMemo(() => {
-    const totalCount = singles.length + Array.from(albumsMap.values()).reduce((acc, v) => acc + v.length, 0);
-    return loading ? "Loading…" : `${totalCount} song${totalCount === 1 ? "" : "s"}`;
-  }, [loading, singles.length, albumsMap]);
-
-  // -----------------------------------------
-  // ✅ Add to cart (DO NOT TOUCH IDs)
-  // -----------------------------------------
-  const addToCart = (r: SongCard) => {
-    if (ownedSongIds.has(r.id)) return showToast("Already owned.");
-    if (!userId) {
-      setSignInModalOpen(true);
-      return;
-    }
-    if (!r.priceCents || r.priceCents < 50) return showToast("Invalid song price.");
-
-    // ✅ DO NOT TOUCH ID
-    addItem({
-      id: r.id,
-      title: r.title,
-      artist: r.artist,
-      cover_url: r.coverUrl || null,
-      price_cents: r.priceCents,
-    });
-
-    showToast("Added to cart ✅");
-  };
-
-  const playOwnedSong = async (r: SongCard) => {
-    if (!r.audioUrl) return showToast("No audio uploaded.");
-    if (nowPlayingSongId === r.id) return stopAllAudio();
-
-    stopAllAudio();
-
-    const audio = audioRef.current ?? new Audio();
-    audioRef.current = audio;
-
-    audio.onended = () => stopAllAudio();
-    audio.onerror = () => {
-      showToast("Audio failed to load. Check bucket access / URL.");
-      stopAllAudio();
-    };
-
-    try {
-      audio.src = r.audioUrl;
-      audio.currentTime = 0;
-      await audio.play();
-      setNowPlayingSongId(r.id);
-      setLockedSongId(null);
-    } catch {
-      showToast("Playback blocked. Click again.");
-      stopAllAudio();
-    }
-  };
-
-  const playSongDemo = async (r: SongCard) => {
-    if (ownedSongIds.has(r.id)) return playOwnedSong(r);
-    if (!r.audioUrl) return showToast("No audio uploaded.");
-
-    if (playedSinglesThisSessionRef.current.has(r.id)) {
-      stopAllAudio();
-      setLockedSongId(r.id);
-      return showToast("To continue listening, please purchase this song.");
-    }
-
-    if (nowPlayingSongId === r.id) return stopAllAudio();
-
-    setLockedSongId(null);
-    stopAllAudio();
-
-    const audio = audioRef.current ?? new Audio();
-    audioRef.current = audio;
-
-    audio.onended = () => {
-      stopAllAudio();
-      setLockedSongId(r.id);
-      showToast("To continue listening, please purchase this song.");
-    };
-    audio.onerror = () => {
-      showToast("Audio failed to load. Check bucket access / URL.");
-      stopAllAudio();
-    };
-
-    try {
-      audio.src = r.audioUrl;
-      audio.currentTime = 0;
-      await audio.play();
-      setNowPlayingSongId(r.id);
-
-      playedSinglesThisSessionRef.current.add(r.id);
-
-      if (demoStopTimerRef.current) window.clearTimeout(demoStopTimerRef.current);
-      demoStopTimerRef.current = window.setTimeout(() => {
-        stopAllAudio();
-        setLockedSongId(r.id);
-        showToast("To continue listening, please purchase this song.");
-      }, SINGLE_DEMO_SECONDS * 1000);
-    } catch {
-      showToast("Playback blocked. Click again.");
-      stopAllAudio();
-    }
-  };
-
-  const sectionTitle = useMemo(() => {
-    if (view.kind === "singles") return SINGLES_LABEL;
-    const match = albumItems.find((a) => a.id === view.albumId);
-    return match?.title ?? "Album";
-  }, [view, albumItems]);
-
-  const sectionSubCount = useMemo(() => {
-    const n = displaySongs.length;
-    return `${n} track${n === 1 ? "" : "s"}`;
-  }, [displaySongs.length]);
-
-  const SongGrid = ({ list }: { list: SongCard[] }) => {
-    if (list.length === 0) {
-      return (
-        <div className="rounded-2xl border border-white/10 bg-black/40 p-5 text-sm text-white/70">
-          Nothing here yet. The void remains undefeated.
-        </div>
-      );
-    }
-
-    return (
-      <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-        {list.map((r) => {
-          const isOwned = ownedSongIds.has(r.id);
-
-          return (
-            <div key={r.id} className="rounded-2xl bg-black/40 border border-white/10 overflow-hidden">
-              <div className="relative aspect-square overflow-hidden">
-                <img
-                  src={r.coverUrl || FALLBACK_COVER}
-                  className="w-full h-full object-cover"
-                  alt={`${r.title} cover`}
-                  loading="lazy"
-                  onError={onImgError}
-                />
-                {isOwned && <OwnedOverlay src={songOwnedBadge} alt="Owned" />}
-              </div>
-
-              <div className="p-4 bg-black/35 backdrop-blur-sm">
-                <div className="font-semibold">{r.title}</div>
-                <div className="text-sm text-white/60">{r.artist}</div>
-
-                <div className="mt-3 flex items-center justify-between text-sm">
-                  {isOwned ? (
-                    <span className="text-white/70 font-semibold">Owned</span>
-                  ) : (
-                    <span className="font-semibold">{formatZar(r.priceCents)}</span>
-                  )}
-                  <span className="text-white/60">{formatReleaseDate(r.releaseDate)}</span>
-                </div>
-
-                {isOwned ? (
-                  <button
-                    className="mt-3 w-full rounded-xl border border-white/15 bg-white/10 py-2 text-sm font-semibold hover:bg-white/15"
-                    onClick={() => void playOwnedSong(r)}
-                  >
-                    {nowPlayingSongId === r.id ? "Stop" : "Play full song"}
-                  </button>
-                ) : (
-                  <>
-                    <div className="mt-3 flex flex-col sm:flex-row gap-2">
-                      <button
-                        className="flex-1 rounded-xl border border-white/15 bg-white/10 py-2 text-sm font-semibold hover:bg-white/15"
-                        onClick={() => void playSongDemo(r)}
-                      >
-                        {nowPlayingSongId === r.id ? "Stop" : `Play demo (${SINGLE_DEMO_SECONDS}s)`}
-                      </button>
-
-                      <button
-                        className="flex-1 rounded-xl border border-white/15 bg-white/10 py-2 text-sm font-semibold hover:bg-white/15"
-                        onClick={() => void addToCart(r)}
-                      >
-                        Add to cart
-                      </button>
-                    </div>
-
-                    {!isOwned && lockedSongId === r.id && (
-                      <div className="mt-3 rounded-xl border border-white/10 bg-black/50 p-3 text-xs text-white/70">
-                        Demo used. Purchase to continue listening.
-                      </div>
-                    )}
-                  </>
-                )}
-              </div>
-            </div>
-          );
-        })}
-      </div>
-    );
-  };
+  const TABS: FilterTab[] = ["All", "Singles", "Albums"];
 
   return (
-    <div className="relative min-h-screen flex flex-col">
-      {/* Sign-in modal */}
-      <SignInFirstModal
-        open={signInModalOpen}
-        onClose={() => setSignInModalOpen(false)}
-        onGoSignIn={() => {
-          setSignInModalOpen(false);
-          window.location.href = "/profile";
-        }}
-      />
+    <div className="relative min-h-screen flex flex-col" style={{ background: "#080508" }}>
+      <VideoBackground overlay={0.88} />
 
-      {/* Background */}
-      <div className="fixed inset-0 z-0 pointer-events-none">
-        <video
-          autoPlay
-          muted
-          loop
-          playsInline
-          preload="auto"
-          disablePictureInPicture
-          poster="/normal-bg-poster.jpg"
-          className="h-full w-full object-cover pointer-events-none select-none"
-        >
-          <source src="/normal-bg.webm" type="video/webm" />
-          <source src="/normal-bg.mp4" type="video/mp4" />
-        </video>
-
-        <div className="absolute inset-0 bg-black/45" />
-      </div>
+      {/* Subtle top-right radial glow */}
+      <div className="fixed inset-0 z-0 pointer-events-none"
+        style={{ background: "radial-gradient(ellipse at 90% 0%, rgba(255,0,144,0.08) 0%, transparent 60%)" }} />
 
       <div className="relative z-10 flex flex-col min-h-screen text-white">
         <Navbar overlayOnHome={false} />
 
         <main className="flex-1">
-          <div className="mx-auto max-w-6xl px-4 py-10">
-            <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
+          <div className="mx-auto max-w-6xl px-6 py-14">
+
+            {/* ── Hero header ── */}
+            <div className="flex items-start justify-between mb-12">
               <div>
-                <h1 className="text-4xl font-semibold">Music</h1>
-                <div className="mt-2 text-sm text-white/60">
-                  {headerCountText}
-                  {loadingOwned ? " • checking owned…" : ""}
+                <p className="flex items-center gap-3 text-[11px] font-bold uppercase tracking-[0.35em] mb-5"
+                  style={{ color: "#FF0090" }}>
+                  <span className="inline-block w-8 h-px" style={{ background: "#FF0090" }} />
+                  Full Catalogue
+                </p>
+                <h1 className="leading-none font-black uppercase">
+                  <span className="block text-6xl md:text-8xl text-white" style={{ letterSpacing: "-0.02em" }}>THE</span>
+                  <span className="block text-6xl md:text-8xl italic" style={{ letterSpacing: "-0.02em", color: "#FF0090" }}>MUSIC</span>
+                </h1>
+              </div>
+
+              {/* Platform links — right side */}
+              <div className="hidden md:flex flex-col gap-2 mt-2">
+                {PLATFORMS.map(p => (
+                  <a key={p.label} href={p.href} target="_blank" rel="noreferrer"
+                    className="flex items-center gap-3 px-5 py-3 rounded-xl text-sm font-semibold uppercase tracking-[0.1em] transition-all duration-200 hover:brightness-125"
+                    style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.08)", color: p.color, minWidth: "180px" }}
+                  >
+                    <span className="shrink-0">{p.icon}</span>
+                    {p.label}
+                  </a>
+                ))}
+              </div>
+            </div>
+
+            {/* ── Latest Release banner ── */}
+            <div
+              className="flex flex-col sm:flex-row items-center sm:items-stretch gap-6 rounded-2xl overflow-hidden mb-16"
+              style={{ background: "rgba(20,10,28,0.9)", border: "1px solid rgba(255,0,144,0.2)", boxShadow: "0 0 80px rgba(255,0,144,0.08)" }}
+            >
+              {/* Cover */}
+              <div className="shrink-0 w-40 h-40 sm:w-52 sm:h-52 overflow-hidden">
+                <img src="/covers/baby.png" alt="Vir Jou Is Ek Baby"
+                  className="w-full h-full object-cover block" />
+              </div>
+
+              {/* Info */}
+              <div className="flex flex-col justify-center px-4 sm:px-8 py-6 sm:py-0">
+                <p className="text-[10px] font-bold uppercase tracking-[0.3em] mb-2" style={{ color: "#FF0090" }}>
+                  ✦ Latest Release
+                </p>
+                <h2 className="text-2xl sm:text-3xl font-black text-white leading-tight mb-1">
+                  Vir Jou Is Ek Baby
+                </h2>
+                <p className="text-sm text-white/40 mb-5">EP &nbsp;·&nbsp; 2026 &nbsp;·&nbsp; 6 Tracks</p>
+                <div className="flex flex-wrap gap-2">
+                  {PLATFORMS.slice(0, 3).map(p => (
+                    <a key={p.label} href={p.href} target="_blank" rel="noreferrer"
+                      className="flex items-center gap-2 px-4 py-2 rounded-full text-[11px] font-bold uppercase tracking-[0.12em] transition-all duration-200 hover:brightness-125"
+                      style={{ background: "rgba(255,255,255,0.07)", color: p.color, border: "1px solid rgba(255,255,255,0.1)" }}
+                    >
+                      <span className="[&>svg]:w-3.5 [&>svg]:h-3.5">{p.icon}</span>
+                      {p.label}
+                    </a>
+                  ))}
                 </div>
               </div>
             </div>
 
-            {toast && (
-              <div className="mt-4 rounded-2xl border border-white/10 bg-black/45 backdrop-blur-sm px-5 py-3 text-sm text-white/80">
-                {toast}
-              </div>
-            )}
-
-            {error && (
-              <div className="mt-4 rounded-2xl border border-red-500/30 bg-red-500/10 px-5 py-4 text-sm text-red-200">
-                Failed to load music: {error}
-              </div>
-            )}
-
-            {/* ✅ NEW LAYOUT: Sidebar + Content (categorised) */}
-            <section className="mt-10">
-              <div className="grid gap-6 lg:grid-cols-[260px_1fr]">
-                {/* Sidebar */}
-                <aside className="rounded-2xl border border-white/10 bg-black/35 backdrop-blur-sm overflow-hidden">
-                  <div className="px-4 py-4 border-b border-white/10">
-                    <div className="text-xl font-semibold">Albums</div>
-                  </div>
-
-                  <div className="px-2 py-2">
-                    {albumItems.length === 0 ? (
-                      <div className="px-3 py-3 text-sm text-white/60">
-                        No albums yet. Singles doing all the work.
-                      </div>
-                    ) : (
-                      <div className="flex flex-col">
-                        {albumItems.map((a) => {
-                          const active = view.kind === "album" && view.albumId === a.id;
-                          return (
-                            <button
-                              key={a.id}
-                              type="button"
-                              onClick={() => {
-                                stopAllAudio();
-                                setLockedSongId(null);
-                                setView({ kind: "album", albumId: a.id });
-                              }}
-                              className={[
-                                "text-left w-full px-3 py-2 rounded-xl transition",
-                                active
-                                  ? "bg-white/10 border border-white/15"
-                                  : "hover:bg-white/5 border border-transparent",
-                              ].join(" ")}
-                            >
-                              <div className="text-sm text-white/90 truncate">{a.title}</div>
-                              <div className="text-[11px] text-white/50">{a.trackCount} track{a.trackCount === 1 ? "" : "s"}</div>
-                            </button>
-                          );
-                        })}
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="px-4 py-4 border-t border-white/10">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        stopAllAudio();
-                        setLockedSongId(null);
-                        setView({ kind: "singles" });
-                      }}
-                      className={[
-                        "w-full rounded-2xl px-4 py-3 text-left transition border",
-                        view.kind === "singles"
-                          ? "bg-white/10 border-white/15"
-                          : "bg-black/20 border-white/10 hover:bg-white/5",
-                      ].join(" ")}
-                    >
-                      <div className="text-lg font-semibold">{SIDEBAR_SINGLES_LABEL}</div>
-                      <div className="text-xs text-white/60">{singles.length} track{singles.length === 1 ? "" : "s"}</div>
-                    </button>
-                  </div>
-                </aside>
-
-                {/* Main content */}
-                <div>
-                  <div className="flex items-end justify-between gap-3 mb-4">
-                    <div className="flex items-end gap-3">
-                      <h2 className="text-xl font-semibold">{sectionTitle}</h2>
-                    </div>
-                    <div className="text-xs text-white/50">{sectionSubCount}</div>
-                  </div>
-
-                  {loading ? (
-                    <div className="rounded-2xl border border-white/10 bg-black/40 p-5 text-sm text-white/70">
-                      Loading…
-                    </div>
-                  ) : (
-                    <SongGrid list={displaySongs} />
-                  )}
-                </div>
-              </div>
-            </section>
-
-            {/* PLATFORM EMBEDS */}
-            <section className="mt-14">
-              <h2 className="text-xl font-semibold mb-2">Listen on platforms</h2>
-              <p className="text-sm text-white/60 mb-6">Same music. Different billion-dollar apps.</p>
-
-              <div className="grid gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
-                {PLATFORM_EMBEDS.map((e) => (
-                  <div
-                    key={e.id}
-                    className="rounded-2xl border border-white/10 bg-black/40 backdrop-blur-sm overflow-hidden"
+            {/* ── Filter tabs + search ── */}
+            <div className="flex flex-wrap items-center justify-between gap-4 mb-4">
+              <div className="flex items-center gap-1">
+                {TABS.map(tab => (
+                  <button key={tab}
+                    onClick={() => { setFilter(tab); setIndex(0); }}
+                    className="flex items-center gap-2 px-4 py-2 text-xs font-bold uppercase tracking-[0.15em] transition-colors duration-200 relative"
+                    style={{ color: filter === tab ? "#fff" : "rgba(255,255,255,0.4)" }}
                   >
-                    <div className="bg-black/70">
-                      <div
-                        className={`relative w-full overflow-hidden ${
-                          e.platform === "Apple Music" ? "aspect-[16/7]" : "aspect-square"
-                        }`}
-                      >
-                        <div className="absolute inset-0 bg-black" />
-                        <div className="absolute inset-0 bg-gradient-to-b from-black/0 via-black/0 to-black/35 pointer-events-none" />
-
-                        {e.platform === "Apple Music" ? (
-                          <iframe
-                            src={e.src}
-                            title={e.title}
-                            loading="lazy"
-                            frameBorder={0}
-                            allow="autoplay *; encrypted-media *; fullscreen *; clipboard-write"
-                            sandbox="allow-forms allow-popups allow-same-origin allow-scripts allow-storage-access-by-user-activation allow-top-navigation-by-user-activation"
-                            className="absolute inset-0 h-full w-full"
-                          />
-                        ) : (
-                          <iframe
-                            src={e.src}
-                            title={e.title}
-                            loading="lazy"
-                            allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
-                            className="absolute inset-0 h-full w-full"
-                          />
-                        )}
-                      </div>
-                    </div>
-
-                    <div className="p-4 bg-black/35 backdrop-blur-sm border-t border-white/10">
-                      <div className="text-base sm:text-lg font-semibold leading-tight">{e.title}</div>
-                      <div className="mt-2">
-                        <span
-                          className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] ${platformBadgeClass(
-                            e.platform
-                          )}`}
-                        >
-                          {e.platform}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
+                    {tab}
+                    <span
+                      className="text-[9px] font-bold px-1.5 py-0.5 rounded-full tabular-nums"
+                      style={{
+                        background: filter === tab ? "#FF0090" : "rgba(255,255,255,0.12)",
+                        color: filter === tab ? "#fff" : "rgba(255,255,255,0.5)",
+                      }}
+                    >
+                      {counts[tab]}
+                    </span>
+                    {filter === tab && (
+                      <span className="absolute bottom-0 left-0 right-0 h-0.5 rounded-full" style={{ background: "#FF0090" }} />
+                    )}
+                  </button>
                 ))}
               </div>
-            </section>
+
+              {/* Search */}
+              <div className="relative">
+                <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/30" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-4.35-4.35M17 11A6 6 0 1 1 5 11a6 6 0 0 1 12 0z"/>
+                </svg>
+                <input
+                  value={search}
+                  onChange={e => { setSearch(e.target.value); setIndex(0); }}
+                  placeholder="Search..."
+                  className="pl-9 pr-4 py-2 text-sm text-white/70 placeholder-white/25 rounded-full outline-none transition-all duration-200 focus:ring-1"
+                  style={{ background: "rgba(255,255,255,0.07)", border: "1px solid rgba(255,255,255,0.1)", width: "180px", ringColor: "#FF0090" }}
+                />
+              </div>
+            </div>
+
+            {/* Count + sort line */}
+            <div className="flex items-center justify-between mb-10 text-[11px] uppercase tracking-[0.18em] text-white/30">
+              <span>Showing <strong className="text-white/60">{filtered.length}</strong> of <strong className="text-white/60">{allReleases.length}</strong> releases</span>
+              <span>Newest First</span>
+            </div>
+
+            {/* ── Carousel ── */}
+            {filtered.length === 0 ? (
+              <div className="text-center py-20 text-white/25 text-sm">No releases found.</div>
+            ) : (
+              <>
+                <style>{ANIM_CSS}</style>
+
+                {/* Main carousel area */}
+                <div className="relative flex items-center justify-center gap-4">
+                  {/* Prev button */}
+                  <button
+                    onClick={prev}
+                    disabled={index === 0}
+                    aria-label="Previous"
+                    className="shrink-0 w-12 h-12 rounded-full flex items-center justify-center text-sm font-bold uppercase tracking-widest transition-all duration-200 disabled:opacity-20 hover:bg-white/10 z-10"
+                    style={{ border: "1px solid rgba(255,255,255,0.15)", color: "rgba(255,255,255,0.6)" }}
+                  >
+                    prev
+                  </button>
+
+                  {/* Side cards + main card */}
+                  <div className="flex items-center gap-3 flex-1 justify-center overflow-hidden" style={{ maxWidth: "900px" }}>
+
+                    {/* Prev partial card */}
+                    <div className="hidden sm:block shrink-0 cursor-pointer transition-all duration-500"
+                      style={{ width: "200px", opacity: 0.4, transform: "scale(0.88) translateX(30px)", transformOrigin: "right center" }}
+                      onClick={prev}
+                    >
+                      {index > 0 && <ReleaseCard release={filtered[index - 1]} isActive={false} />}
+                    </div>
+
+                    {/* Active card — drag/swipe only on this element */}
+                    <div
+                      key={animKey}
+                      className={`shrink-0 cursor-grab active:cursor-grabbing ${dir === "right" ? "card-in-right" : dir === "left" ? "card-in-left" : "card-in"}`}
+                      style={{ width: "min(420px, 80vw)" }}
+                      onPointerDown={onPointerDown}
+                      onPointerMove={onPointerMove}
+                      onPointerUp={onPointerUp}
+                      onPointerCancel={onPointerUp}
+                    >
+                      {current && <ReleaseCard release={current} isActive={true} />}
+                    </div>
+
+                    {/* Next partial card */}
+                    <div className="hidden sm:block shrink-0 cursor-pointer transition-all duration-500"
+                      style={{ width: "200px", opacity: 0.4, transform: "scale(0.88) translateX(-30px)", transformOrigin: "left center" }}
+                      onClick={next}
+                    >
+                      {index < filtered.length - 1 && <ReleaseCard release={filtered[index + 1]} isActive={false} />}
+                    </div>
+                  </div>
+
+                  {/* Next button */}
+                  <button
+                    onClick={next}
+                    disabled={index === filtered.length - 1}
+                    aria-label="Next"
+                    className="shrink-0 w-12 h-12 rounded-full flex items-center justify-center text-sm font-bold uppercase tracking-widest transition-all duration-200 disabled:opacity-20 z-10"
+                    style={{ background: "rgba(255,0,144,0.15)", border: "1px solid rgba(255,0,144,0.3)", color: "#FF0090" }}
+                  >
+                    next
+                  </button>
+                </div>
+
+                {/* Dot indicators */}
+                <div className="flex items-center justify-center gap-2 mt-8">
+                  {filtered.map((_, i) => (
+                    <button
+                      key={i}
+                      onClick={() => navigate(i)}
+                      aria-label={`Release ${i + 1}`}
+                      className="rounded-full transition-all duration-300"
+                      style={{
+                        width: i === index ? "20px" : "6px",
+                        height: "6px",
+                        background: i === index ? "#FF0090" : "rgba(255,255,255,0.2)",
+                      }}
+                    />
+                  ))}
+                </div>
+              </>
+            )}
           </div>
         </main>
 

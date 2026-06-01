@@ -1,17 +1,8 @@
-// src/pages/Bookings.tsx
 import React, { useMemo, useState } from "react";
 import Navbar from "../components/layout/Navbar";
 import Footer from "../components/layout/Footer";
-import {
-  CalendarDays,
-  Mail,
-  MessageCircle,
-  Phone,
-  Send,
-  MapPin,
-  Banknote,
-  User,
-} from "lucide-react";
+import VideoBackground from "../components/layout/VideoBackground";
+import { CalendarDays, Mail, MessageCircle, Phone, Send, MapPin, Banknote, User } from "lucide-react";
 
 type FormState = {
   fullName: string;
@@ -25,76 +16,50 @@ type FormState = {
 };
 
 export default function Bookings() {
-  const contact = useMemo(
-    () => ({
-      bookings: {
-        phoneDisplay: "+27 82 301 0820",
-        phoneTel: "+27823010820",
-        whatsappDisplay: "+27 82 301 0820",
-        whatsappLink: "https://wa.me/27823010820",
-        email: "events@thelegacygroup.co.za",
-      },
-      prManager: {
-        phoneDisplay: "071 334 8346",
-        phoneTel: "+27713348346",
-        email: "management@bliximstraat.com",
-      },
-      subjectPrefix: "Booking Enquiry",
-    }),
-    []
-  );
+  const contact = useMemo(() => ({
+    bookings: {
+      phoneDisplay: "+27 82 301 0820",
+      phoneTel: "+27823010820",
+      whatsappDisplay: "+27 82 301 0820",
+      whatsappLink: "https://wa.me/27823010820",
+      email: "events@thelegacygroup.co.za",
+    },
+    prManager: {
+      phoneDisplay: "071 334 8346",
+      phoneTel: "+27713348346",
+      email: "management@bliximstraat.com",
+    },
+    subjectPrefix: "Booking Enquiry",
+  }), []);
 
   const [form, setForm] = useState<FormState>({
-    fullName: "",
-    email: "",
-    phone: "",
+    fullName: "", email: "", phone: "",
     eventType: "Live Performance",
-    date: "",
-    location: "",
-    budget: "",
-    message: "",
+    date: "", location: "", budget: "", message: "",
   });
-
   const [submitting, setSubmitting] = useState(false);
 
-  const onChange =
-    (key: keyof FormState) =>
-    (
-      e: React.ChangeEvent<
-        HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement
-      >
-    ) => {
-      setForm((prev) => ({ ...prev, [key]: e.target.value }));
+  const onChange = (key: keyof FormState) =>
+    (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+      setForm(prev => ({ ...prev, [key]: e.target.value }));
     };
 
   const buildMailto = () => {
-    const recipients = [
-      contact.bookings.email,
-      contact.prManager.email,
-    ].join(",");
-
+    const recipients = [contact.bookings.email, contact.prManager.email].join(",");
     const lines = [
-      `${contact.subjectPrefix} - ${form.eventType}`,
-      "",
+      `${contact.subjectPrefix} - ${form.eventType}`, "",
       `Name: ${form.fullName || "-"}`,
       `Email: ${form.email || "-"}`,
       `Phone: ${form.phone || "-"}`,
       `Event Type: ${form.eventType || "-"}`,
       `Date: ${form.date || "-"}`,
       `Location/Venue: ${form.location || "-"}`,
-      `Budget: ${form.budget || "-"}`,
-      "",
-      "Message:",
-      form.message || "-",
-      "",
+      `Budget: ${form.budget || "-"}`, "",
+      "Message:", form.message || "-", "",
       "Sent from the Bliximstraat website bookings page.",
     ];
-
-    const subject = encodeURIComponent(
-      `${contact.subjectPrefix} - ${form.eventType}`
-    );
+    const subject = encodeURIComponent(`${contact.subjectPrefix} - ${form.eventType}`);
     const body = encodeURIComponent(lines.join("\n"));
-
     return `mailto:${recipients}?subject=${subject}&body=${body}`;
   };
 
@@ -106,218 +71,157 @@ export default function Bookings() {
   };
 
   return (
-    <div className="relative min-h-screen text-white overflow-x-hidden flex flex-col">
-      {/* === FIXED VIDEO BACKGROUND (fast + mobile-safe) === */}
-      <div className="fixed inset-0 z-0 pointer-events-none">
-        <video
-          autoPlay
-          muted
-          loop
-          playsInline
-          preload="auto"
-          disablePictureInPicture
-          poster="/normal-bg-poster.jpg"
-          className="h-full w-full object-cover pointer-events-none select-none"
-        >
-          <source src="/normal-bg.webm" type="video/webm" />
-          <source src="/normal-bg.mp4" type="video/mp4" />
-        </video>
+    <div
+      className="relative min-h-screen text-white overflow-x-hidden flex flex-col"
+      style={{ background: "#000000" }}
+    >
+      <VideoBackground />
 
-        <div className="absolute inset-0 bg-black/40" />
-      </div>
-
-      {/* Foreground */}
       <div className="relative z-10 flex flex-col min-h-screen">
         <Navbar />
 
         <main className="flex-1">
-          {/* Spacer for fixed navbar */}
-          <div className="h-20" />
+          <div className="mx-auto max-w-6xl px-6 py-12">
 
-          <div className="mx-auto max-w-6xl px-6 py-10">
             {/* Header */}
-            <header className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
-              <div>
-                <h1 className="text-4xl md:text-5xl font-black tracking-tight">
-                  Bookings{" "}
-                  <span className="text-teal-300 drop-shadow-[0_0_18px_rgba(20,184,166,0.35)]">
-                    Contact
-                  </span>
-                </h1>
-                <p className="mt-2 text-white/70">
-                  Book the band. Ask questions. Provide dates. Basic human stuff.
-                </p>
-              </div>
+            <header className="mb-10">
+              <p className="text-[10px] font-medium uppercase tracking-[0.28em] text-white/35 mb-3">
+                Get in Touch
+              </p>
+              <h1 className="text-4xl md:text-5xl font-light tracking-tight text-white">
+                Bookings
+              </h1>
+              <p className="mt-2 text-sm text-white/40">
+                Book the band. Ask questions. Provide dates. Basic human stuff.
+              </p>
             </header>
 
-            {/* Content */}
-            <div className="mt-10 grid grid-cols-1 gap-6 md:grid-cols-12">
-              {/* Form */}
-              <section className="md:col-span-8">
-                <div className="relative rounded-2xl border border-white/10 bg-black/35 backdrop-blur-xl shadow-[0_18px_60px_rgba(0,0,0,0.45)] overflow-hidden">
-                  <div className="pointer-events-none absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-teal-400/60 via-fuchsia-400/30 to-yellow-300/40 opacity-70" />
+            <div className="h-px mb-10" style={{ background: "rgba(255,255,255,0.07)" }} />
 
-                  <div className="px-6 py-5 border-b border-white/10">
-                    <h2 className="text-2xl font-black tracking-tight">
-                      Booking Form
-                    </h2>
-                    <p className="mt-1 text-sm text-white/60">
+            <div className="grid grid-cols-1 gap-6 md:grid-cols-12">
+
+              {/* FORM */}
+              <section className="md:col-span-8">
+                <div
+                  className="rounded-xl overflow-hidden"
+                  style={{ border: "1px solid rgba(255,255,255,0.07)", background: "rgba(255,255,255,0.02)" }}
+                >
+                  <div
+                    className="px-6 py-5"
+                    style={{ borderBottom: "1px solid rgba(255,255,255,0.06)" }}
+                  >
+                    <h2 className="text-base font-medium text-white">Booking Form</h2>
+                    <p className="mt-1 text-xs text-white/40">
                       This opens your email app with everything pre-filled.
                     </p>
                   </div>
 
                   <form onSubmit={onSubmit} className="px-6 py-6 space-y-5">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <Field
-                        icon={<User className="h-4 w-4" />}
-                        label="Full Name"
-                        value={form.fullName}
-                        onChange={onChange("fullName")}
-                        placeholder="Your name"
-                        required
-                      />
-                      <Field
-                        icon={<Mail className="h-4 w-4" />}
-                        label="Email"
-                        value={form.email}
-                        onChange={onChange("email")}
-                        placeholder="you@example.com"
-                        type="email"
-                        required
-                      />
-                      <Field
-                        icon={<Phone className="h-4 w-4" />}
-                        label="Phone"
-                        value={form.phone}
-                        onChange={onChange("phone")}
-                        placeholder="+27 ..."
-                      />
+                      <Field icon={<User className="h-3.5 w-3.5" />} label="Full Name"
+                        value={form.fullName} onChange={onChange("fullName")} placeholder="Your name" required />
+                      <Field icon={<Mail className="h-3.5 w-3.5" />} label="Email"
+                        value={form.email} onChange={onChange("email")} placeholder="you@example.com" type="email" required />
+                      <Field icon={<Phone className="h-3.5 w-3.5" />} label="Phone"
+                        value={form.phone} onChange={onChange("phone")} placeholder="+27 ..." />
 
                       <div>
-                        <label className="block text-xs text-white/60 mb-2">
-                          Event Type
-                        </label>
+                        <label className="block text-[10px] uppercase tracking-[0.2em] text-white/35 mb-2">Event Type</label>
                         <select
                           value={form.eventType}
                           onChange={onChange("eventType")}
-                          className="w-full rounded-2xl border border-white/10 bg-black/40 px-4 py-3 text-white/90 outline-none focus:border-teal-400/40 focus:ring-2 focus:ring-teal-400/15"
+                          className="w-full px-4 py-3 text-sm text-white/80 outline-none rounded-lg appearance-none"
+                          style={{
+                            background: "rgba(255,255,255,0.04)",
+                            border: "1px solid rgba(255,255,255,0.09)",
+                          }}
+                          onFocus={e => (e.currentTarget.style.borderColor = "rgba(255,255,255,0.20)")}
+                          onBlur={e => (e.currentTarget.style.borderColor = "rgba(255,255,255,0.09)")}
                         >
-                          <option>Live Performance</option>
-                          <option>Private Event</option>
-                          <option>Festival</option>
-                          <option>Corporate</option>
-                          <option>Other</option>
+                          <option className="bg-zinc-900">Live Performance</option>
+                          <option className="bg-zinc-900">Private Event</option>
+                          <option className="bg-zinc-900">Festival</option>
+                          <option className="bg-zinc-900">Corporate</option>
+                          <option className="bg-zinc-900">Other</option>
                         </select>
                       </div>
 
-                      <Field
-                        icon={<CalendarDays className="h-4 w-4" />}
-                        label="Date"
-                        value={form.date}
-                        onChange={onChange("date")}
-                        type="date"
-                      />
-                      <Field
-                        icon={<MapPin className="h-4 w-4" />}
-                        label="Location / Venue"
-                        value={form.location}
-                        onChange={onChange("location")}
-                        placeholder="City / venue name"
-                      />
-                      <Field
-                        icon={<Banknote className="h-4 w-4" />}
-                        label="Budget (optional)"
-                        value={form.budget}
-                        onChange={onChange("budget")}
-                        placeholder="ZAR"
-                      />
+                      <Field icon={<CalendarDays className="h-3.5 w-3.5" />} label="Date"
+                        value={form.date} onChange={onChange("date")} type="date" />
+                      <Field icon={<MapPin className="h-3.5 w-3.5" />} label="Location / Venue"
+                        value={form.location} onChange={onChange("location")} placeholder="City / venue name" />
+                      <Field icon={<Banknote className="h-3.5 w-3.5" />} label="Budget (optional)"
+                        value={form.budget} onChange={onChange("budget")} placeholder="ZAR" />
                     </div>
 
                     <div>
-                      <label className="block text-xs text-white/60 mb-2">
-                        Message
-                      </label>
+                      <label className="block text-[10px] uppercase tracking-[0.2em] text-white/35 mb-2">Message</label>
                       <textarea
                         value={form.message}
                         onChange={onChange("message")}
-                        rows={6}
+                        rows={5}
                         placeholder="Set time, venue, PA provided, tech requirements, etc."
-                        className="w-full rounded-2xl border border-white/10 bg-black/40 px-4 py-3 text-white/90 placeholder:text-white/40 outline-none focus:border-teal-400/40 focus:ring-2 focus:ring-teal-400/15 resize-none"
+                        className="w-full px-4 py-3 text-sm text-white/80 placeholder:text-white/20 outline-none resize-none rounded-lg"
+                        style={{
+                          background: "rgba(255,255,255,0.04)",
+                          border: "1px solid rgba(255,255,255,0.09)",
+                        }}
+                        onFocus={e => (e.currentTarget.style.borderColor = "rgba(255,255,255,0.20)")}
+                        onBlur={e => (e.currentTarget.style.borderColor = "rgba(255,255,255,0.09)")}
                       />
                     </div>
 
-                    <div className="flex justify-end">
+                    <div className="flex justify-end pt-1">
                       <button
                         type="submit"
                         disabled={submitting}
-                        className="inline-flex items-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-5 py-3 text-sm text-white/85 hover:bg-white/10 transition disabled:opacity-60"
+                        className="inline-flex items-center gap-2 px-6 py-2.5 text-sm font-medium text-black bg-white rounded-sm hover:bg-white/90 transition-colors disabled:opacity-50"
                       >
-                        <Send className="h-4 w-4" />
+                        <Send className="h-3.5 w-3.5" />
                         {submitting ? "Opening email..." : "Send Enquiry"}
                       </button>
                     </div>
                   </form>
                 </div>
-
-                <p className="mt-4 text-xs text-white/50">
+                <p className="mt-3 text-[10px] text-white/25">
                   This will send the enquiry to both the bookings email and the PR manager.
                 </p>
               </section>
 
-              {/* Contact */}
+              {/* CONTACT ASIDE */}
               <aside className="md:col-span-4">
-                <div className="rounded-2xl border border-white/10 bg-black/35 backdrop-blur-xl shadow-[0_18px_60px_rgba(0,0,0,0.45)] overflow-hidden">
-                  <div className="px-6 py-5 border-b border-white/10">
-                    <h2 className="text-2xl font-black tracking-tight">Contact</h2>
-                    <p className="mt-1 text-sm text-white/60">
-                      Choose the right human to bother.
-                    </p>
+                <div
+                  className="rounded-xl overflow-hidden"
+                  style={{ border: "1px solid rgba(255,255,255,0.07)", background: "rgba(255,255,255,0.02)" }}
+                >
+                  <div
+                    className="px-6 py-5"
+                    style={{ borderBottom: "1px solid rgba(255,255,255,0.06)" }}
+                  >
+                    <h2 className="text-base font-medium text-white">Contact</h2>
+                    <p className="mt-1 text-xs text-white/40">Choose the right person to reach.</p>
                   </div>
 
-                  <div className="px-6 py-6 space-y-6">
+                  <div className="px-6 py-6 space-y-7">
                     <div>
-                      <h3 className="text-sm font-bold uppercase tracking-[0.22em] text-teal-300/90 mb-3">
-                        Bookings
-                      </h3>
-                      <div className="space-y-4">
-                        <ContactRow
-                          icon={<Phone className="h-4 w-4" />}
-                          label="Phone"
-                          value={contact.bookings.phoneDisplay}
-                          href={`tel:${contact.bookings.phoneTel}`}
-                        />
-                        <ContactRow
-                          icon={<MessageCircle className="h-4 w-4" />}
-                          label="WhatsApp"
-                          value={contact.bookings.whatsappDisplay}
-                          href={contact.bookings.whatsappLink}
-                        />
-                        <ContactRow
-                          icon={<Mail className="h-4 w-4" />}
-                          label="Email"
-                          value={contact.bookings.email}
-                          href={`mailto:${contact.bookings.email}`}
-                        />
+                      <p className="text-[10px] uppercase tracking-[0.25em] text-white/30 mb-4">Bookings</p>
+                      <div className="space-y-2">
+                        <ContactRow icon={<Phone className="h-3.5 w-3.5" />} label="Phone"
+                          value={contact.bookings.phoneDisplay} href={`tel:${contact.bookings.phoneTel}`} />
+                        <ContactRow icon={<MessageCircle className="h-3.5 w-3.5" />} label="WhatsApp"
+                          value={contact.bookings.whatsappDisplay} href={contact.bookings.whatsappLink} />
+                        <ContactRow icon={<Mail className="h-3.5 w-3.5" />} label="Email"
+                          value={contact.bookings.email} href={`mailto:${contact.bookings.email}`} />
                       </div>
                     </div>
 
-                    <div className="border-t border-white/10 pt-6">
-                      <h3 className="text-sm font-bold uppercase tracking-[0.22em] text-fuchsia-300/90 mb-3">
-                        PR Manager
-                      </h3>
-                      <div className="space-y-4">
-                        <ContactRow
-                          icon={<Phone className="h-4 w-4" />}
-                          label="Phone"
-                          value={contact.prManager.phoneDisplay}
-                          href={`tel:${contact.prManager.phoneTel}`}
-                        />
-                        <ContactRow
-                          icon={<Mail className="h-4 w-4" />}
-                          label="Email"
-                          value={contact.prManager.email}
-                          href={`mailto:${contact.prManager.email}`}
-                        />
+                    <div style={{ borderTop: "1px solid rgba(255,255,255,0.06)", paddingTop: "1.5rem" }}>
+                      <p className="text-[10px] uppercase tracking-[0.25em] text-white/30 mb-4">PR Manager</p>
+                      <div className="space-y-2">
+                        <ContactRow icon={<Phone className="h-3.5 w-3.5" />} label="Phone"
+                          value={contact.prManager.phoneDisplay} href={`tel:${contact.prManager.phoneTel}`} />
+                        <ContactRow icon={<Mail className="h-3.5 w-3.5" />} label="Email"
+                          value={contact.prManager.email} href={`mailto:${contact.prManager.email}`} />
                       </div>
                     </div>
                   </div>
@@ -342,14 +246,12 @@ function Field(props: {
   type?: string;
   required?: boolean;
 }) {
-  const { icon, label, value, onChange, placeholder, type = "text", required } =
-    props;
-
+  const { icon, label, value, onChange, placeholder, type = "text", required } = props;
   return (
     <div>
-      <label className="block text-xs text-white/60 mb-2">{label}</label>
+      <label className="block text-[10px] uppercase tracking-[0.2em] text-white/35 mb-2">{label}</label>
       <div className="relative">
-        <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-white/55">
+        <span className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-white/30">
           {icon}
         </span>
         <input
@@ -358,36 +260,43 @@ function Field(props: {
           onChange={onChange}
           placeholder={placeholder}
           required={required}
-          className="w-full rounded-2xl border border-white/10 bg-black/40 pl-11 pr-4 py-3 text-white/90 placeholder:text-white/40 outline-none focus:border-teal-400/40 focus:ring-2 focus:ring-teal-400/15"
+          className="w-full pl-10 pr-4 py-3 text-sm text-white/80 placeholder:text-white/20 outline-none rounded-lg"
+          style={{
+            background: "rgba(255,255,255,0.04)",
+            border: "1px solid rgba(255,255,255,0.09)",
+          }}
+          onFocus={e => (e.currentTarget.style.borderColor = "rgba(255,255,255,0.20)")}
+          onBlur={e => (e.currentTarget.style.borderColor = "rgba(255,255,255,0.09)")}
         />
       </div>
     </div>
   );
 }
 
-function ContactRow(props: {
-  icon: React.ReactNode;
-  label: string;
-  value: string;
-  href: string;
-}) {
-  const { icon, label, value, href } = props;
-
+function ContactRow({ icon, label, value, href }: { icon: React.ReactNode; label: string; value: string; href: string }) {
   return (
     <a
       href={href}
       target={href.startsWith("http") ? "_blank" : undefined}
       rel={href.startsWith("http") ? "noreferrer" : undefined}
-      className="flex items-center gap-3 rounded-2xl border border-white/10 bg-black/40 px-4 py-4 hover:bg-black/35 transition"
+      className="flex items-center gap-3 px-4 py-3 rounded-lg transition-colors duration-200"
+      style={{ border: "1px solid rgba(255,255,255,0.06)", background: "rgba(255,255,255,0.02)" }}
+      onMouseEnter={e => {
+        (e.currentTarget as HTMLAnchorElement).style.borderColor = "rgba(255,255,255,0.12)";
+        (e.currentTarget as HTMLAnchorElement).style.background = "rgba(255,255,255,0.04)";
+      }}
+      onMouseLeave={e => {
+        (e.currentTarget as HTMLAnchorElement).style.borderColor = "rgba(255,255,255,0.06)";
+        (e.currentTarget as HTMLAnchorElement).style.background = "rgba(255,255,255,0.02)";
+      }}
     >
-      <div className="h-9 w-9 rounded-xl border border-white/10 bg-white/5 flex items-center justify-center text-white/80">
+      <div className="h-8 w-8 rounded-lg flex items-center justify-center text-white/30 shrink-0"
+        style={{ border: "1px solid rgba(255,255,255,0.07)", background: "rgba(255,255,255,0.03)" }}>
         {icon}
       </div>
       <div className="min-w-0">
-        <p className="text-xs uppercase tracking-[0.22em] text-white/55">
-          {label}
-        </p>
-        <p className="text-sm text-white/85 truncate">{value}</p>
+        <p className="text-[9px] uppercase tracking-[0.22em] text-white/30">{label}</p>
+        <p className="text-xs text-white/60 truncate mt-0.5">{value}</p>
       </div>
     </a>
   );

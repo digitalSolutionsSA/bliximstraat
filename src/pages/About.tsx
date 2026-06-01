@@ -1,224 +1,178 @@
-// src/pages/About.tsx
 import Navbar from "../components/layout/Navbar";
 import Footer from "../components/layout/Footer";
+import VideoBackground from "../components/layout/VideoBackground";
 import PageContainer from "../components/layout/PageContainer";
 import { motion } from "framer-motion";
-import { Music2, Sparkles, MapPin, Users, SlidersHorizontal } from "lucide-react";
+import { MapPin, Users, SlidersHorizontal } from "lucide-react";
 import pieterImage from "../assets/pieter.png";
-
 
 export default function About() {
   return (
-    <div className="relative min-h-screen text-white overflow-x-hidden flex flex-col">
-      {/* === FIXED VIDEO BACKGROUND (fast + mobile-safe) === */}
-<div className="fixed inset-0 z-0 pointer-events-none">
-  <video
-    autoPlay
-    muted
-    loop
-    playsInline
-    preload="auto"
-    disablePictureInPicture
-    poster="/normal-bg-poster.jpg"
-    className="h-full w-full object-cover pointer-events-none select-none"
-  >
-    <source src="/normal-bg.webm" type="video/webm" />
-    <source src="/normal-bg.mp4" type="video/mp4" />
-  </video>
+    <div
+      className="relative min-h-screen text-white overflow-x-hidden flex flex-col"
+      style={{ background: "#000000" }}
+    >
+      <VideoBackground />
 
-  <div className="absolute inset-0 bg-black/40" />
-</div>
-
-
-      {/* Foreground */}
       <div className="relative z-10 flex flex-col min-h-screen">
         <Navbar />
 
         <main className="relative z-10 flex-1">
           {/* Header */}
-          <section className="pt-28 pb-10">
+          <section className="pt-12 pb-8">
             <PageContainer>
               <motion.div
-                initial={{ opacity: 0, y: 14 }}
+                initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.45 }}
-                className="flex flex-col gap-4"
+                transition={{ duration: 0.4 }}
               >
-                <h1 className="text-3xl md:text-5xl font-semibold tracking-tight">
+                <p className="text-[10px] font-medium uppercase tracking-[0.28em] text-white/35 mb-3">
+                  The Story
+                </p>
+                <h1 className="text-4xl md:text-5xl font-light tracking-tight text-white">
                   About
                 </h1>
-                <p className="text-white/70 max-w-2xl">
-                  The story, the sound, and the little details people pretend they
-                  “totally noticed” in your music.
+                <p className="mt-2 text-sm text-white/40 max-w-lg">
+                  The story, the sound, and the little details people pretend they "totally noticed" in your music.
                 </p>
               </motion.div>
             </PageContainer>
           </section>
 
+          <div className="h-px mx-6" style={{ background: "rgba(255,255,255,0.07)" }} />
+
           {/* Content */}
           <section className="pb-24">
-            <PageContainer className="py-10 sm:py-14 md:py-16">
-              <div className="space-y-6">
-                {/* BIO + IMAGE ROW */}
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <PageContainer className="py-10 sm:py-14">
+              <div className="space-y-5">
+
+                {/* BIO + IMAGE */}
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
                   {/* Artist Bio */}
                   <motion.div
-                    initial={{ opacity: 0, y: 18 }}
+                    initial={{ opacity: 0, y: 12 }}
                     whileInView={{ opacity: 1, y: 0 }}
                     viewport={{ once: true, amount: 0.2 }}
                     transition={{ duration: 0.4 }}
-                    className="lg:col-span-2 rounded-2xl border border-white/10 bg-black/40 backdrop-blur-sm p-6 md:p-8"
+                    className="lg:col-span-2 rounded-xl p-6 md:p-8"
+                    style={{ border: "1px solid rgba(255,255,255,0.07)", background: "rgba(255,255,255,0.02)" }}
                   >
-                    <div className="flex items-center gap-3">
-                      <div className="h-10 w-10 rounded-xl border border-white/10 bg-white/5 grid place-items-center">
-                        <Sparkles className="h-5 w-5 text-white/80" />
-                      </div>
-                      <h2 className="text-xl md:text-2xl font-semibold">
-                        Artist bio
-                      </h2>
-                    </div>
+                    <p className="text-[10px] font-medium uppercase tracking-[0.28em] text-white/35 mb-4">
+                      Artist Bio
+                    </p>
 
-                    <div className="mt-5 space-y-4 text-white/75 leading-relaxed">
+                    <div className="space-y-4 text-sm text-white/55 leading-relaxed">
                       <p>
-                        <span className="text-white font-semibold">
-                          Bliximstraat
-                        </span>{" "}
+                        <span className="text-white font-medium">Bliximstraat</span>{" "}
                         is a unique Afrikaans music project that blends modern sounds with deep,
                         honest lyrics. The music moves between danceable and introspective, with themes
                         focused on life, consciousness, emotion, and the realities of the street.
-                        <br /><br />
+                      </p>
+                      <p>
                         Although the music is created with the help of AI technology, every lyric
                         is originally written, with meaning and feeling at its core. Bliximstraat
                         stands for authenticity, thought, and movement — music that makes you feel,
                         think, and dance.
-                        <br /><br />
-                        The project’s mission is to push Afrikaans music forward by merging
+                      </p>
+                      <p>
+                        The project's mission is to push Afrikaans music forward by merging
                         technology and creativity, without sacrificing soul or storytelling.
                       </p>
-
                       <p>
                         Born from a love of retro texture and modern punch,
                         Bliximstraat blends cinematic atmosphere with tight
                         songwriting. The goal is simple: make tracks that hit
                         emotionally and still knock in a live set.
                       </p>
-
-                      <p className="text-white/60">
-                        Replace this bio with the real story: where you’re from,
-                        who’s involved, highlights (releases, shows, radio plays,
-                        collaborations), and what you want the world to know.
-                      </p>
                     </div>
                   </motion.div>
 
-                  {/* IMAGE CARD – SHOW FULL IMAGE (NO CROPPING) */}
+                  {/* Image */}
                   <motion.div
-  initial={{ opacity: 0, y: 18 }}
-  whileInView={{ opacity: 1, y: 0 }}
-  viewport={{ once: true, amount: 0.2 }}
-  transition={{ duration: 0.4, delay: 0.05 }}
-  className="relative overflow-hidden rounded-2xl border border-white/10 bg-black/40 backdrop-blur-sm
-             min-h-[320px] lg:min-h-[420px]"
->
-  <img
-    src={pieterImage}
-    alt="Artist portrait"
-    className="absolute inset-0 w-full h-full object-cover"
-    draggable={false}
-  />
-
-  {/* subtle overlay so it matches the UI */}
-  <div className="absolute inset-0 bg-black/15 pointer-events-none" />
-</motion.div>
-
+                    initial={{ opacity: 0, y: 12 }}
+                    whileInView={{ opacity: 1, y: 0 }}
+                    viewport={{ once: true, amount: 0.2 }}
+                    transition={{ duration: 0.4, delay: 0.06 }}
+                    className="relative overflow-hidden rounded-xl min-h-[300px] lg:min-h-[400px]"
+                    style={{ border: "1px solid rgba(255,255,255,0.07)" }}
+                  >
+                    <img
+                      src={pieterImage}
+                      alt="Artist portrait"
+                      className="absolute inset-0 w-full h-full object-cover"
+                      draggable={false}
+                    />
+                    <div className="absolute inset-0 bg-black/10 pointer-events-none" />
+                    <div
+                      className="absolute inset-x-0 bottom-0 h-20 pointer-events-none"
+                      style={{ background: "linear-gradient(to top, rgba(0,0,0,0.6), transparent)" }}
+                    />
+                  </motion.div>
                 </div>
 
                 {/* QUICK FACTS */}
                 <motion.div
-                  initial={{ opacity: 0, y: 18 }}
+                  initial={{ opacity: 0, y: 12 }}
                   whileInView={{ opacity: 1, y: 0 }}
                   viewport={{ once: true, amount: 0.2 }}
-                  transition={{ duration: 0.4, delay: 0.06 }}
-                  className="rounded-2xl border border-white/10 bg-black/40 backdrop-blur-sm p-6 md:p-8"
+                  transition={{ duration: 0.4, delay: 0.05 }}
+                  className="rounded-xl p-6 md:p-8"
+                  style={{ border: "1px solid rgba(255,255,255,0.07)", background: "rgba(255,255,255,0.02)" }}
                 >
-                  <h3 className="text-lg font-semibold">Quick facts</h3>
-
-                  <div className="mt-5 grid grid-cols-1 sm:grid-cols-3 gap-4">
-                    <div className="rounded-2xl border border-white/10 bg-black/35 p-5">
-                      <div className="flex items-center gap-2">
-                        <MapPin className="h-4 w-4 text-white/70" />
-                        <span className="text-sm text-white/60">Based in</span>
+                  <p className="text-[10px] font-medium uppercase tracking-[0.28em] text-white/35 mb-6">
+                    Quick Facts
+                  </p>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    {[
+                      { icon: <MapPin className="h-3.5 w-3.5" />, label: "Based in", value: "South Africa" },
+                      { icon: <Users className="h-3.5 w-3.5" />, label: "For fans of", value: "Synth textures, indie edges, late-night energy" },
+                      { icon: <SlidersHorizontal className="h-3.5 w-3.5" />, label: "Vibe", value: "Retro-futuristic, cinematic, nocturnal" },
+                    ].map(f => (
+                      <div
+                        key={f.label}
+                        className="rounded-lg p-4"
+                        style={{ border: "1px solid rgba(255,255,255,0.06)", background: "rgba(255,255,255,0.02)" }}
+                      >
+                        <div className="flex items-center gap-2 text-white/35 mb-3">
+                          {f.icon}
+                          <span className="text-[10px] uppercase tracking-[0.2em]">{f.label}</span>
+                        </div>
+                        <div className="text-sm text-white/65">{f.value}</div>
                       </div>
-                      <div className="mt-3 text-sm text-white/80">
-                        South Africa
-                      </div>
-                    </div>
-
-                    <div className="rounded-2xl border border-white/10 bg-black/35 p-5">
-                      <div className="flex items-center gap-2">
-                        <Users className="h-4 w-4 text-white/70" />
-                        <span className="text-sm text-white/60">For fans of</span>
-                      </div>
-                      <div className="mt-3 text-sm text-white/80">
-                        Synth textures, indie edges, late-night energy
-                      </div>
-                    </div>
-
-                    <div className="rounded-2xl border border-white/10 bg-black/35 p-5">
-                      <div className="flex items-center gap-2">
-                        <SlidersHorizontal className="h-4 w-4 text-white/70" />
-                        <span className="text-sm text-white/60">Vibe</span>
-                      </div>
-                      <div className="mt-3 text-sm text-white/80">
-                        Retro-futuristic, cinematic, nocturnal
-                      </div>
-                    </div>
+                    ))}
                   </div>
                 </motion.div>
 
                 {/* SOUND / STYLE */}
                 <motion.div
-                  initial={{ opacity: 0, y: 18 }}
+                  initial={{ opacity: 0, y: 12 }}
                   whileInView={{ opacity: 1, y: 0 }}
                   viewport={{ once: true, amount: 0.2 }}
-                  transition={{ duration: 0.4, delay: 0.08 }}
-                  className="rounded-2xl border border-white/10 bg-white/5 backdrop-blur-sm p-6 md:p-8"
+                  transition={{ duration: 0.4, delay: 0.07 }}
+                  className="rounded-xl p-6 md:p-8"
+                  style={{ border: "1px solid rgba(255,255,255,0.07)", background: "rgba(255,255,255,0.02)" }}
                 >
-                  <div className="flex items-center gap-3">
-                    <div className="h-10 w-10 rounded-xl border border-white/10 bg-black/40 grid place-items-center">
-                      <Music2 className="h-5 w-5 text-white/80" />
-                    </div>
-                    <h2 className="text-xl md:text-2xl font-semibold">
-                      Sound / style
-                    </h2>
-                  </div>
-
-                  <div className="mt-5 grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div className="rounded-2xl border border-white/10 bg-black/35 p-5">
-                      <div className="text-sm text-white/60">Core sound</div>
-                      <div className="mt-2 text-white/80">
-                        Afrikaans EDM / Trap / Synth-influenced songwriting with punchy
-                        hooks and cinematic space.
+                  <p className="text-[10px] font-medium uppercase tracking-[0.28em] text-white/35 mb-6">
+                    Sound &amp; Style
+                  </p>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    {[
+                      { label: "Core sound", value: "Afrikaans EDM / Trap / Synth-influenced songwriting with punchy hooks and cinematic space." },
+                      { label: "Mood", value: "Neon nostalgia, tension, romance, and that 'something's about to happen' feeling." },
+                      { label: "Live energy", value: "Tight, loud, and emotional. Built to translate from headphones to stage without losing the atmosphere." },
+                    ].map(s => (
+                      <div
+                        key={s.label}
+                        className="rounded-lg p-5"
+                        style={{ border: "1px solid rgba(255,255,255,0.06)", background: "rgba(255,255,255,0.02)" }}
+                      >
+                        <div className="text-[10px] uppercase tracking-[0.2em] text-white/35 mb-3">{s.label}</div>
+                        <div className="text-sm text-white/60 leading-relaxed">{s.value}</div>
                       </div>
-                    </div>
-
-                    <div className="rounded-2xl border border-white/10 bg-black/35 p-5">
-                      <div className="text-sm text-white/60">Mood</div>
-                      <div className="mt-2 text-white/80">
-                        Neon nostalgia, tension, romance, and that “something’s
-                        about to happen” feeling.
-                      </div>
-                    </div>
-
-                    <div className="rounded-2xl border border-white/10 bg-black/35 p-5">
-                      <div className="text-sm text-white/60">Live energy</div>
-                      <div className="mt-2 text-white/80">
-                        Tight, loud, and emotional. Built to translate from
-                        headphones to stage without losing the atmosphere.
-                      </div>
-                    </div>
+                    ))}
                   </div>
                 </motion.div>
+
               </div>
             </PageContainer>
           </section>

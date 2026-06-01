@@ -1,245 +1,278 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import Navbar from "../components/layout/Navbar";
 import Footer from "../components/layout/Footer";
-import { supabase } from "../lib/supabase";
+import VideoBackground from "../components/layout/VideoBackground";
+import { SHOWS } from "../data/shows";
 
-type ShowRowAny = {
-  id: string;
-  title?: string | null;
-  venue?: string | null;
-  city?: string | null;
+// ── Gallery images ────────────────────────────────────────────────────────────
 
-  // possible date fields (depending on how your table was made)
-  show_date?: string | null; // date or timestamptz
-  date?: string | null;
-  event_date?: string | null;
-  starts_at?: string | null;
+const GALLERY_IMAGES = [
+  1, 2, 4, 5, 6, 7, 9, 12, 14, 15, 17, 18, 19, 20, 22, 24, 25, 29,
+  30, 31, 33, 35, 37, 39, 40, 41, 43, 45, 47, 54, 55, 56, 60, 63, 66, 67,
+].map(n => `/shows/${n}.png`);
 
-  // possible time fields
-  show_time?: string | null;
-  time?: string | null;
-};
+// ── Lightbox ──────────────────────────────────────────────────────────────────
 
-type ShowUI = {
-  id: string;
-  title: string | null;
-  venue: string;
-  city: string;
-  show_date: string; // normalized ISO string
-  show_time: string | null;
-};
-
-function pickFirst<T>(...vals: Array<T | null | undefined>): T | null {
-  for (const v of vals) if (v !== null && v !== undefined) return v;
-  return null;
-}
-
-// Parse date safely. If it's "YYYY-MM-DD", force local midnight to avoid timezone shifting.
-function parseDateSafe(dateStr: string): Date {
-  // YYYY-MM-DD
-  if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
-    const [y, m, d] = dateStr.split("-").map(Number);
-    return new Date(y, m - 1, d, 0, 0, 0, 0);
-  }
-  return new Date(dateStr);
-}
-
-export default function Shows() {
-  const [shows, setShows] = useState<ShowUI[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
+function Lightbox({ images, index, onClose, onPrev, onNext }: {
+  images: string[];
+  index: number;
+  onClose: () => void;
+  onPrev: () => void;
+  onNext: () => void;
+}) {
   useEffect(() => {
-    const load = async () => {
-      setLoading(true);
-      setError(null);
-
-      // Select * so missing columns don't crash the entire request.
-      // We'll normalize in JS.
-      const { data, error } = await supabase.from("shows").select("*");
-
-      if (error) {
-        setError(error.message);
-        setShows([]);
-        setLoading(false);
-        return;
-      }
-
-      const rows = (data as ShowRowAny[]) ?? [];
-
-      const normalized: ShowUI[] = rows
-        .map((r) => {
-          const rawDate = pickFirst(r.show_date, r.date, r.event_date, r.starts_at) ?? "";
-
-          // If we *still* don't have a date, we can't show it properly.
-          // We'll drop it rather than lying to the UI.
-          if (!rawDate) return null;
-
-          const rawTime = pickFirst(r.show_time, r.time);
-
-          return {
-            id: r.id,
-            title: r.title ?? null,
-            venue: r.venue ?? "TBA",
-            city: r.city ?? "TBA",
-            show_date: rawDate,
-            show_time: rawTime ?? null,
-          };
-        })
-        .filter(Boolean) as ShowUI[];
-
-      // Sort by date here, since DB ordering may not be possible without knowing the column name.
-      normalized.sort(
-        (a, b) => parseDateSafe(a.show_date).getTime() - parseDateSafe(b.show_date).getTime()
-      );
-
-      setShows(normalized);
-      setLoading(false);
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+      if (e.key === "ArrowLeft")  onPrev();
+      if (e.key === "ArrowRight") onNext();
     };
-
-    load();
-  }, []);
-
-  const today = useMemo(() => {
-    const d = new Date();
-    d.setHours(0, 0, 0, 0);
-    return d;
-  }, []);
-
-  const upcomingShows = useMemo(() => {
-    return shows.filter((s) => parseDateSafe(s.show_date) >= today);
-  }, [shows, today]);
-
-  const pastShows = useMemo(() => {
-    return shows.filter((s) => parseDateSafe(s.show_date) < today);
-  }, [shows, today]);
-
-  const formatDate = (dateStr: string) => {
-    const d = parseDateSafe(dateStr);
-    return d.toLocaleDateString("en-ZA", {
-      day: "2-digit",
-      month: "long",
-      year: "numeric",
-    });
-  };
+    window.addEventListener("keydown", handler);
+    document.body.style.overflow = "hidden";
+    return () => {
+      window.removeEventListener("keydown", handler);
+      document.body.style.overflow = "";
+    };
+  }, [onClose, onPrev, onNext]);
 
   return (
-    <div className="relative min-h-screen text-white overflow-x-hidden flex flex-col">
-      {/* === FIXED VIDEO BACKGROUND === */}
-      <div className="fixed inset-0 z-0">
-        <video
-          className="h-full w-full object-cover"
-          src="/normal-bg.mp4"
-          autoPlay
-          muted
-          loop
-          playsInline
-          preload="auto"
-          onCanPlay={() => window.dispatchEvent(new Event("bg-video-ready"))}
-          onLoadedData={() => window.dispatchEvent(new Event("bg-video-ready"))}
-        />
-        <div className="absolute inset-0 bg-black/40" />
+    <div
+      className="fixed inset-0 z-[200] flex items-center justify-center"
+      style={{ background: "rgba(0,0,0,0.92)", backdropFilter: "blur(12px)" }}
+      onClick={onClose}
+    >
+      {/* Image */}
+      <img
+        src={images[index]}
+        alt={`Show photo ${index + 1}`}
+        className="max-h-[88vh] max-w-[90vw] object-contain rounded-lg select-none"
+        onClick={e => e.stopPropagation()}
+        draggable={false}
+      />
+
+      {/* Close */}
+      <button
+        onClick={onClose}
+        className="absolute top-5 right-6 text-white/50 hover:text-white transition-colors text-3xl leading-none"
+        aria-label="Close"
+      >
+        ×
+      </button>
+
+      {/* Prev */}
+      <button
+        onClick={e => { e.stopPropagation(); onPrev(); }}
+        className="absolute left-4 top-1/2 -translate-y-1/2 w-10 h-10 flex items-center justify-center rounded-full text-white/50 hover:text-white hover:bg-white/10 transition-all"
+        aria-label="Previous"
+      >
+        ‹
+      </button>
+
+      {/* Next */}
+      <button
+        onClick={e => { e.stopPropagation(); onNext(); }}
+        className="absolute right-4 top-1/2 -translate-y-1/2 w-10 h-10 flex items-center justify-center rounded-full text-white/50 hover:text-white hover:bg-white/10 transition-all"
+        aria-label="Next"
+      >
+        ›
+      </button>
+
+      {/* Counter */}
+      <p className="absolute bottom-5 left-1/2 -translate-x-1/2 text-[11px] text-white/35 uppercase tracking-[0.25em]">
+        {index + 1} / {images.length}
+      </p>
+    </div>
+  );
+}
+
+// ── Gallery grid ──────────────────────────────────────────────────────────────
+
+function Gallery() {
+  const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
+
+  const open  = (i: number) => setLightboxIndex(i);
+  const close = () => setLightboxIndex(null);
+  const prev  = () => setLightboxIndex(i => (i! - 1 + GALLERY_IMAGES.length) % GALLERY_IMAGES.length);
+  const next  = () => setLightboxIndex(i => (i! + 1) % GALLERY_IMAGES.length);
+
+  return (
+    <>
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-1.5">
+        {GALLERY_IMAGES.map((src, i) => (
+          <button
+            key={src}
+            onClick={() => open(i)}
+            className="group relative aspect-square overflow-hidden rounded-lg focus:outline-none"
+            style={{ background: "rgba(255,255,255,0.04)" }}
+          >
+            <img
+              src={src}
+              alt={`Show ${i + 1}`}
+              className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+              loading="lazy"
+            />
+            <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center">
+              <span className="text-white/80 text-2xl">⤢</span>
+            </div>
+          </button>
+        ))}
       </div>
 
-      {/* === FOREGROUND === */}
+      {lightboxIndex !== null && (
+        <Lightbox
+          images={GALLERY_IMAGES}
+          index={lightboxIndex}
+          onClose={close}
+          onPrev={prev}
+          onNext={next}
+        />
+      )}
+    </>
+  );
+}
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
+function formatDate(dateStr: string) {
+  const [y, m, d] = dateStr.split("-").map(Number);
+  return new Date(y, m - 1, d).toLocaleDateString("en-ZA", {
+    day: "2-digit",
+    month: "long",
+    year: "numeric",
+  });
+}
+
+// ── Page ──────────────────────────────────────────────────────────────────────
+
+export default function Shows() {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  const upcoming = SHOWS.filter(s => {
+    const [y, m, d] = s.date.split("-").map(Number);
+    return new Date(y, m - 1, d) >= today;
+  }).sort((a, b) => a.date.localeCompare(b.date));
+
+  const past = SHOWS.filter(s => {
+    const [y, m, d] = s.date.split("-").map(Number);
+    return new Date(y, m - 1, d) < today;
+  }).sort((a, b) => b.date.localeCompare(a.date));
+
+  return (
+    <div
+      className="relative min-h-screen text-white overflow-x-hidden flex flex-col"
+      style={{ background: "#000000" }}
+    >
+      <VideoBackground />
+
       <div className="relative z-10 flex flex-col min-h-screen">
         <Navbar />
 
         <main className="flex-1">
-          <div className="max-w-6xl mx-auto px-6 py-24 space-y-24">
-            {/* PAGE TITLE */}
-            <header className="text-center space-y-4">
-              <h1 className="text-4xl md:text-5xl font-semibold tracking-wide">Shows</h1>
-              <p className="text-white/60 max-w-xl mx-auto">
-                Upcoming shows, past chaos, and places we’ve made noise.
+          <div className="max-w-6xl mx-auto px-6 py-12 space-y-14">
+
+            {/* Header */}
+            <header>
+              <p className="text-[10px] font-medium uppercase tracking-[0.28em] text-white/35 mb-3">
+                Live
+              </p>
+              <h1 className="text-4xl md:text-5xl font-light tracking-tight text-white">
+                Shows
+              </h1>
+              <p className="mt-2 text-sm text-white/40">
+                Upcoming shows, past chaos, and places we've made noise.
               </p>
             </header>
 
-            {error && (
-              <div className="rounded-2xl border border-red-500/30 bg-red-500/10 px-6 py-4 text-red-200 text-sm">
-                Failed to load shows: {error}
-              </div>
-            )}
+            <div className="h-px" style={{ background: "rgba(255,255,255,0.07)" }} />
 
-            {loading && <div className="text-center text-white/60">Loading shows…</div>}
+            {/* Upcoming */}
+            <section className="space-y-5">
+              <h2 className="text-base font-medium text-white">Upcoming Shows</h2>
 
-            {/* UPCOMING SHOWS */}
-            {!loading && (
-              <section className="space-y-8">
-                <h2 className="text-2xl font-medium tracking-wide">Upcoming Shows</h2>
-
-                {upcomingShows.length === 0 && (
-                  <div className="rounded-xl border border-white/10 bg-black/30 p-5 text-white/60">
-                    No upcoming shows yet. Fix that.
+              {upcoming.length === 0 ? (
+                <div
+                  className="rounded-xl p-12 text-center"
+                  style={{ border: "1px solid rgba(255,255,255,0.07)" }}
+                >
+                  <div className="text-4xl mb-4 text-white/15 select-none">♪</div>
+                  <div className="text-white/50 text-base font-light">No upcoming shows yet</div>
+                  <div className="text-white/30 text-sm mt-2">Watch this space. Something's coming.</div>
+                  <div className="mt-8">
+                    <a
+                      href="/bookings"
+                      className="inline-flex items-center px-6 py-2.5 text-sm font-medium text-black bg-white rounded-sm hover:bg-white/90 transition-colors"
+                    >
+                      Book us for your event
+                    </a>
                   </div>
-                )}
-
-                <div className="space-y-4">
-                  {upcomingShows.map((show) => (
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {upcoming.map(show => (
                     <div
                       key={show.id}
-                      className="
-                        flex flex-col md:flex-row md:items-center md:justify-between
-                        gap-4
-                        p-5
-                        rounded-xl
-                        border border-white/15
-                        bg-black/40
-                        backdrop-blur-sm
-                      "
+                      className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 px-5 py-4 rounded-xl"
+                      style={{ border: "1px solid rgba(255,255,255,0.07)", background: "rgba(255,255,255,0.02)" }}
                     >
                       <div className="space-y-1">
-                        <p className="text-lg font-medium">{show.title || show.venue}</p>
-                        <p className="text-white/60">
-                          {show.venue} • {show.city}
-                        </p>
+                        <p className="text-sm font-medium text-white">{show.title || show.venue}</p>
+                        <p className="text-xs text-white/40">{show.venue} · {show.city}</p>
+                        {show.time && <p className="text-xs text-white/30">{show.time}</p>}
                       </div>
-
-                      <div className="text-sm text-white/70 md:text-right">
-                        <p>{formatDate(show.show_date)}</p>
-                        {show.show_time && <p>{show.show_time}</p>}
+                      <div className="flex items-center gap-4 shrink-0">
+                        <span className="text-xs text-white/50">
+                          {formatDate(show.date)}
+                        </span>
+                        {show.ticketUrl && (
+                          <a
+                            href={show.ticketUrl}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="px-4 py-2 text-xs font-medium text-black bg-white rounded-sm hover:bg-white/90 transition-colors"
+                          >
+                            Tickets
+                          </a>
+                        )}
                       </div>
                     </div>
                   ))}
                 </div>
-              </section>
-            )}
+              )}
+            </section>
 
-            {/* PAST SHOWS */}
-            {!loading && pastShows.length > 0 && (
-              <section className="space-y-8">
-                <h2 className="text-2xl font-medium tracking-wide">Past Shows</h2>
-
-                <div className="space-y-3">
-                  {pastShows.map((show) => (
+            {/* Past shows */}
+            {past.length > 0 && (
+              <section className="space-y-3">
+                <h2 className="text-sm font-medium text-white/40">Past Shows</h2>
+                <div className="space-y-2">
+                  {past.map(show => (
                     <div
                       key={show.id}
-                      className="
-                        flex flex-col sm:flex-row sm:items-center sm:justify-between
-                        gap-2
-                        p-4
-                        rounded-lg
-                        border border-white/10
-                        bg-black/30
-                        text-white/70
-                      "
+                      className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 px-4 py-3.5 rounded-lg"
+                      style={{ border: "1px solid rgba(255,255,255,0.05)", background: "rgba(255,255,255,0.01)" }}
                     >
-                      <div className="min-w-0">
-                        <p className="font-medium text-white truncate">{show.title || show.venue}</p>
-                        <p className="text-sm text-white/60 truncate">
-                          {show.venue} • {show.city}
-                        </p>
+                      <div>
+                        <p className="text-sm text-white/55">{show.title || show.venue}</p>
+                        <p className="text-xs text-white/30">{show.venue} · {show.city}</p>
                       </div>
-
-                      <div className="text-sm shrink-0 sm:text-right">
-                        <p>{formatDate(show.show_date)}</p>
-                        {show.show_time ? <p>{show.show_time}</p> : null}
-                      </div>
+                      <p className="text-xs text-white/30 shrink-0">{formatDate(show.date)}</p>
                     </div>
                   ))}
                 </div>
               </section>
             )}
+
+            {/* Gallery */}
+            <section className="space-y-6">
+              <div>
+                <p className="text-[10px] font-medium uppercase tracking-[0.28em] text-white/35 mb-2">
+                  Photos
+                </p>
+                <h2 className="text-2xl font-light text-white">Gallery</h2>
+              </div>
+              <Gallery />
+            </section>
+
           </div>
         </main>
 
