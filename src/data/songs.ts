@@ -24,6 +24,17 @@ export const hasVideo = (s: Song) => s.youtubeUrl.includes("watch?v=");
 
 export const SONGS: Song[] = [
 
+  // ── Crocs En Cappuccino — single (2026) ───────────────────────────────────
+  {
+    id: "crocs-en-cappuccino",
+    title: "Crocs En Cappuccino",
+    artist: "BliximStraat",
+    year: "2026",
+    genre: "Dance",
+    youtubeUrl: YT("Evn1ydTnFoc"),
+    coverUrl: COVER("Crocs-En-Cappuccino.png"),
+  },
+
   // ── Vir Jou Is Ek Baby — EP (May 2026) ───────────────────────────────────
   {
     id: "waar-woorde-kort-kom",
