@@ -131,7 +131,7 @@ export default function LandingHero() {
                   className="font-light leading-none tracking-tight"
                   style={{ fontSize: "clamp(2.4rem, 5vw, 3.8rem)", color: "#FF0090" }}
                 >
-                  27M+
+                  30.6M+
                 </span>
                 <span className="text-[10px] font-semibold uppercase tracking-[0.32em] text-white/40">
                   Streams Worldwide

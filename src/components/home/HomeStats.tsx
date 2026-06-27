@@ -4,10 +4,10 @@ import { SONGS } from "../../data/songs";
 
 // ── UPDATE STREAMING NUMBERS HERE ────────────────────────────────────────────
 const STREAMING_DATA = [
-  { platform: "YouTube",     raw: 15,  suffix: "M+", label: "Total Views",   color: "#FF3B3B" },
-  { platform: "Spotify",     raw: 10,  suffix: "M+", label: "Streams",       color: "#1DB954" },
-  { platform: "Apple Music", raw: 2,   suffix: "M+", label: "Streams",       color: "#FF6B81" },
-  { platform: "TikTok",      raw: 5,   suffix: "M+", label: "Views",         color: "#69C9D0" },
+  { platform: "YouTube",     raw: 16.5, suffix: "M+", label: "Total Views",   color: "#FF3B3B" },
+  { platform: "Spotify",     raw: 11.9, suffix: "M+", label: "Streams",       color: "#1DB954" },
+  { platform: "Apple Music", raw: 2.1,  suffix: "M+", label: "Streams",       color: "#FF6B81" },
+  { platform: "TikTok",      raw: 5,    suffix: "M+", label: "Views",         color: "#69C9D0" },
 ];
 
 function deriveAlbumCount() {
@@ -16,63 +16,22 @@ function deriveAlbumCount() {
   return seen.size;
 }
 
-// ── Platform logo SVGs ────────────────────────────────────────────────────────
+// ── Platform logos ────────────────────────────────────────────────────────────
 
 function YouTubeLogo({ size = 36 }: { size?: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 48 48" fill="none">
-      <rect width="48" height="48" rx="12" fill="#FF3B3B" />
-      <path d="M37.8 18.6a4 4 0 00-2.8-2.8C32.6 15 24 15 24 15s-8.6 0-11 .8a4 4 0 00-2.8 2.8C9.4 21 9.4 24 9.4 24s0 3 .8 5.4a4 4 0 002.8 2.8C15.4 33 24 33 24 33s8.6 0 11-.8a4 4 0 002.8-2.8c.8-2.4.8-5.4.8-5.4s0-3-.8-5.4z" fill="white" />
-      <path d="M21 28l7-4-7-4v8z" fill="#FF3B3B" />
-    </svg>
-  );
+  return <img src="/socials/yt.png" alt="YouTube" width={size} height={size} style={{ objectFit: "contain" }} />;
 }
 
 function SpotifyLogo({ size = 36 }: { size?: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 48 48" fill="none">
-      <rect width="48" height="48" rx="24" fill="#1DB954" />
-      <path d="M33 21.5c-5.5-3.3-14.5-3.6-19.8-2-.8.2-1.7-.3-1.9-1.1-.2-.8.3-1.7 1.1-1.9 6-1.8 16-.5 22.4 2.3.8.4 1.1 1.3.7 2.1-.4.7-1.3 1-2.1.6h-.4z" fill="white" />
-      <path d="M32.3 25.6c-.4.6-1.1.9-1.7.5-4.6-2.8-11.6-3.6-17-.2-.7.4-1.5.1-1.9-.5-.4-.7-.1-1.5.5-1.9 6.2-3.8 14-.9 19.3 2.6.6.4.8 1.2.4 1.8l.4-.3z" fill="white" />
-      <path d="M31.5 29.6c-.3.5-.9.7-1.4.4-4-2.4-9-3-14.8-1.6-.6.1-1.1-.2-1.3-.8-.1-.6.2-1.1.8-1.3 6.4-1.5 12 -.8 16.4 1.9.5.3.7.9.3 1.4z" fill="white" />
-    </svg>
-  );
+  return <img src="/socials/spotify.png" alt="Spotify" width={size} height={size} style={{ objectFit: "contain" }} />;
 }
 
 function AppleMusicLogo({ size = 36 }: { size?: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 48 48" fill="none">
-      <defs>
-        <linearGradient id="am-grad" x1="0" y1="0" x2="48" y2="48" gradientUnits="userSpaceOnUse">
-          <stop stopColor="#FC5C7D" />
-          <stop offset="1" stopColor="#9B2335" />
-        </linearGradient>
-      </defs>
-      <rect width="48" height="48" rx="12" fill="url(#am-grad)" />
-      <path
-        d="M32 14H22a2 2 0 00-2 2v1l12-3v13.5A4.5 4.5 0 1130 32V21l-10 2.5V34a4 4 0 11-2-3.5V18a2 2 0 012-2h12a2 2 0 012 2v.5L32 14z"
-        fill="white"
-      />
-    </svg>
-  );
+  return <img src="/socials/apple.png" alt="Apple Music" width={size} height={size} style={{ objectFit: "contain" }} />;
 }
 
 function TikTokLogo({ size = 36 }: { size?: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 48 48" fill="none">
-      <rect width="48" height="48" rx="12" fill="#010101" />
-      <path
-        d="M30 10h-4v19a5 5 0 01-5 5 5 5 0 01-5-5 5 5 0 015-5c.5 0 1 .07 1.5.2V20a9 9 0 00-1.5-.12 9 9 0 00-9 9 9 9 0 009 9 9 9 0 009-9V19.5A14.5 14.5 0 0034 21v-4a10.5 10.5 0 01-4-7z"
-        fill="white"
-      />
-      <path
-        d="M32 10h-2v19a5 5 0 01-5 5 5 5 0 01-5-5 5 5 0 015-5c.5 0 1 .07 1.5.2V20a9 9 0 00-1.5-.12"
-        stroke="#69C9D0"
-        strokeWidth="1.5"
-        fill="none"
-      />
-    </svg>
-  );
+  return <img src="/socials/tktk.png" alt="TikTok" width={size} height={size} style={{ objectFit: "contain" }} />;
 }
 
 function SongsIcon({ size = 36 }: { size?: number }) {
@@ -102,6 +61,7 @@ function easeOutCubic(t: number) { return 1 - Math.pow(1 - t, 3); }
 function useCountUp(target: number, inView: boolean, durationMs = 1800) {
   const [val, setVal] = useState(0);
   const rafRef = useRef<number>(0);
+  const hasDecimal = !Number.isInteger(target);
 
   useEffect(() => {
     if (!inView) return;
@@ -110,13 +70,14 @@ function useCountUp(target: number, inView: boolean, durationMs = 1800) {
     const tick = (now: number) => {
       const elapsed = now - startTime;
       const progress = Math.min(1, elapsed / durationMs);
-      setVal(Math.round(target * easeOutCubic(progress)));
+      const current = target * easeOutCubic(progress);
+      setVal(hasDecimal ? parseFloat(current.toFixed(1)) : Math.round(current));
       if (progress < 1) rafRef.current = requestAnimationFrame(tick);
     };
 
     rafRef.current = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(rafRef.current);
-  }, [inView, target, durationMs]);
+  }, [inView, target, durationMs, hasDecimal]);
 
   return val;
 }
@@ -151,7 +112,7 @@ function StatBlock({ stat, inView, index }: { stat: StatDef; inView: boolean; in
       <div
         className="font-thin tracking-tight leading-none"
         style={{
-          fontSize: "clamp(2.4rem, 5vw, 4.5rem)",
+          fontSize: "clamp(1.8rem, 3.2vw, 3.2rem)",
           color: stat.color,
           textShadow: `0 0 40px ${stat.color}55`,
         }}
@@ -219,7 +180,7 @@ export default function HomeStats() {
         </div>
 
         {/* Stats grid */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-y-10 gap-x-2 relative">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-y-10 gap-x-4 relative">
 
           {/* Vertical dividers (desktop only) */}
           {[1, 2, 3, 4, 5].map(i => (

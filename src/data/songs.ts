@@ -24,6 +24,17 @@ export const hasVideo = (s: Song) => s.youtubeUrl.includes("watch?v=");
 
 export const SONGS: Song[] = [
 
+  // ── Stom — single (2026) ──────────────────────────────────────────────────
+  {
+    id: "stom",
+    title: "Stom",
+    artist: "BliximStraat",
+    year: "2026",
+    genre: "Afrikaans EDM",
+    youtubeUrl: YT("_T9Mo5N2drw"),
+    coverUrl: COVER("stom.jpeg"),
+  },
+
   // ── Crocs En Cappuccino — single (2026) ───────────────────────────────────
   {
     id: "crocs-en-cappuccino",

@@ -190,13 +190,6 @@ export default function Shows() {
             <section className="space-y-5">
               <h2 className="text-base font-medium text-white">Upcoming Shows</h2>
 
-              <img
-                src={imgWelkom}
-                alt="Welkom show"
-                className="rounded-lg object-cover"
-                style={{ width: "220px", maxWidth: "100%" }}
-              />
-
               {upcoming.length === 0 ? (
                 <div
                   className="rounded-xl p-12 text-center"
@@ -254,16 +247,25 @@ export default function Shows() {
                 <h2 className="text-sm font-medium text-white/40">Past Shows</h2>
                 <div className="space-y-2">
                   {past.map(show => (
-                    <div
-                      key={show.id}
-                      className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 px-4 py-3.5 rounded-lg"
-                      style={{ border: "1px solid rgba(255,255,255,0.05)", background: "rgba(255,255,255,0.01)" }}
-                    >
-                      <div>
-                        <p className="text-sm text-white/55">{show.title || show.venue}</p>
-                        <p className="text-xs text-white/30">{show.venue} · {show.city}</p>
+                    <div key={show.id}>
+                      {show.id === "welkom-bokkieweek-2026" && (
+                        <img
+                          src={imgWelkom}
+                          alt="Welkom show poster"
+                          className="rounded-lg object-cover mb-3"
+                          style={{ width: "220px", maxWidth: "100%" }}
+                        />
+                      )}
+                      <div
+                        className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 px-4 py-3.5 rounded-lg"
+                        style={{ border: "1px solid rgba(255,255,255,0.05)", background: "rgba(255,255,255,0.01)" }}
+                      >
+                        <div>
+                          <p className="text-sm text-white/55">{show.title || show.venue}</p>
+                          <p className="text-xs text-white/30">{show.venue} · {show.city}</p>
+                        </div>
+                        <p className="text-xs text-white/30 shrink-0">{formatDate(show.date)}</p>
                       </div>
-                      <p className="text-xs text-white/30 shrink-0">{formatDate(show.date)}</p>
                     </div>
                   ))}
                 </div>
