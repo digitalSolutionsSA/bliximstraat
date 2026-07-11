@@ -4,6 +4,7 @@ const navLinks = [
   { label: "Music",    to: "/music" },
   { label: "Shows",    to: "/shows" },
   { label: "Merch",    to: "/merch" },
+  { label: "News",     to: "/news" },
   { label: "About",    to: "/about" },
   { label: "Bookings", to: "/bookings" },
 ];

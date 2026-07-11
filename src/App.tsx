@@ -7,6 +7,8 @@ import Shows from "./pages/Shows";
 import Merch from "./pages/Merch";
 import About from "./pages/About";
 import Bookings from "./pages/Bookings";
+import News from "./pages/News";
+import NewsArticle from "./pages/NewsArticle";
 
 import CookieConsent from "./components/CookieConsent";
 
@@ -125,6 +127,8 @@ export default function App() {
         <Route path="/merch" element={<Merch />} />
         <Route path="/about" element={<About />} />
         <Route path="/bookings" element={<Bookings />} />
+        <Route path="/news" element={<News />} />
+        <Route path="/news/:slug" element={<NewsArticle />} />
         <Route path="*" element={<Placeholder title="404" />} />
       </Routes>
     </BrowserRouter>

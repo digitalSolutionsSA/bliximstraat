@@ -54,6 +54,7 @@ const NAV_LINKS = [
   { to: "/music",    label: "Music"    },
   { to: "/shows",    label: "Shows"    },
   { to: "/merch",    label: "Merch"    },
+  { to: "/news",     label: "News"     },
   { to: "/about",    label: "About"    },
   { to: "/bookings", label: "Bookings" },
 ];

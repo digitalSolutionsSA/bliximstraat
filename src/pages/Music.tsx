@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Navbar from "../components/layout/Navbar";
 import Footer from "../components/layout/Footer";
 import VideoBackground from "../components/layout/VideoBackground";
@@ -19,7 +19,7 @@ type Release = {
   tracks: Song[];
 };
 
-type FilterTab = "All" | "Singles" | "Albums";
+type FilterTab = "Singles" | "Albums";
 
 // ── Build releases list ───────────────────────────────────────────────────────
 
@@ -117,37 +117,61 @@ const PLATFORMS = [
 // ── Animation CSS ─────────────────────────────────────────────────────────────
 
 const ANIM_CSS = `
-@keyframes cardSlideInRight {
-  0%   { opacity:0; transform:translateX(80px) skewX(-4deg) scale(0.92); filter:blur(8px) brightness(2) hue-rotate(30deg); }
-  40%  { opacity:1; transform:translateX(-8px) skewX(1.5deg) scale(1.01); filter:blur(0) brightness(1.15) hue-rotate(0deg); }
-  65%  { transform:translateX(4px) skewX(-0.5deg) scale(0.995); filter:brightness(1); }
-  100% { opacity:1; transform:translateX(0) skewX(0) scale(1); filter:none; }
-}
-@keyframes cardSlideInLeft {
-  0%   { opacity:0; transform:translateX(-80px) skewX(4deg) scale(0.92); filter:blur(8px) brightness(2) hue-rotate(-30deg); }
-  40%  { opacity:1; transform:translateX(8px) skewX(-1.5deg) scale(1.01); filter:blur(0) brightness(1.15) hue-rotate(0deg); }
-  65%  { transform:translateX(-4px) skewX(0.5deg) scale(0.995); filter:brightness(1); }
-  100% { opacity:1; transform:translateX(0) skewX(0) scale(1); filter:none; }
-}
 @keyframes cardFadeIn {
-  from { opacity:0; transform:scale(0.95); filter:blur(6px); }
-  to   { opacity:1; transform:scale(1);    filter:none; }
+  from { opacity:0; transform:scale(0.95) translateY(8px); filter:blur(6px); }
+  to   { opacity:1; transform:scale(1) translateY(0);      filter:none; }
 }
-.card-in-right { animation: cardSlideInRight 0.5s cubic-bezier(0.22,1,0.36,1) both; }
-.card-in-left  { animation: cardSlideInLeft  0.5s cubic-bezier(0.22,1,0.36,1) both; }
-.card-in       { animation: cardFadeIn       0.4s cubic-bezier(0.22,1,0.36,1) both; }
+.card-in { animation: cardFadeIn 0.4s cubic-bezier(0.22,1,0.36,1) both; }
 `;
+
+// ── Hover backdrop — crossfades to the hovered release's cover art ────────────
+
+function HoverBackdrop({ src }: { src: string | null }) {
+  const [layers, setLayers] = useState<[string | null, string | null]>([null, null]);
+  const [active, setActive] = useState<0 | 1>(0);
+
+  useEffect(() => {
+    if (!src) return;
+    setLayers(prev => {
+      const next: [string | null, string | null] = [...prev];
+      next[active === 0 ? 1 : 0] = src;
+      return next;
+    });
+    setActive(a => (a === 0 ? 1 : 0));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [src]);
+
+  return (
+    <>
+      {[0, 1].map(i => (
+        <div
+          key={i}
+          className="fixed inset-0 z-[1] pointer-events-none transition-opacity duration-300 ease-out"
+          style={{
+            backgroundImage: layers[i] ? `url(${layers[i]})` : undefined,
+            backgroundSize: "cover",
+            backgroundPosition: "center",
+            opacity: src && active === i ? 0.95 : 0,
+            filter: "blur(6px) saturate(1.35) brightness(0.9)",
+            transform: "scale(1.08)",
+          }}
+        />
+      ))}
+    </>
+  );
+}
 
 // ── Release Card ──────────────────────────────────────────────────────────────
 
 function ReleaseCard({ release, isActive }: { release: Release; isActive: boolean }) {
   return (
     <div
-      className="rounded-2xl overflow-hidden flex flex-col transition-all duration-500 select-none"
+      className="rounded-2xl overflow-hidden flex flex-col transition-all duration-300 select-none"
       style={{
         background: "rgba(20,12,30,0.95)",
-        border: `1px solid ${isActive ? "rgba(255,0,144,0.25)" : "rgba(255,255,255,0.06)"}`,
-        boxShadow: isActive ? "0 0 60px rgba(255,0,144,0.12), 0 20px 60px rgba(0,0,0,0.6)" : "0 8px 30px rgba(0,0,0,0.5)",
+        border: `1px solid ${isActive ? "rgba(255,0,144,0.3)" : "rgba(255,255,255,0.06)"}`,
+        boxShadow: isActive ? "0 0 60px rgba(255,0,144,0.15), 0 20px 60px rgba(0,0,0,0.6)" : "0 8px 30px rgba(0,0,0,0.5)",
+        transform: isActive ? "translateY(-4px)" : "none",
       }}
     >
       {/* Cover art */}
@@ -231,14 +255,9 @@ function ReleaseCard({ release, isActive }: { release: Release; isActive: boolea
 
 export default function Music() {
   const allReleases = useReleases(SONGS);
-  const [filter,  setFilter]  = useState<FilterTab>("All");
-  const [search,  setSearch]  = useState("");
-  const [index,   setIndex]   = useState(0);
-  const [animKey, setAnimKey] = useState(0);
-  const [dir,     setDir]     = useState<"right"|"left"|"none">("none");
-  const dragging  = useRef(false);
-  const dragStart = useRef(0);
-  const dragDelta = useRef(0);
+  const [filter,   setFilter]   = useState<FilterTab | null>(null);
+  const [search,   setSearch]   = useState("");
+  const [hovered,  setHovered]  = useState<Release | null>(null);
 
   const filtered = useMemo(() => {
     let list = allReleases;
@@ -252,64 +271,17 @@ export default function Music() {
   }, [allReleases, filter, search]);
 
   const counts = useMemo(() => ({
-    All:     allReleases.length,
     Singles: allReleases.filter(r => r.type === "Single").length,
     Albums:  allReleases.filter(r => r.type === "Album").length,
   }), [allReleases]);
 
-  // clamp index when filter changes
-  useEffect(() => {
-    setIndex(i => Math.min(i, Math.max(filtered.length - 1, 0)));
-  }, [filtered.length]);
-
-  const navigate = useCallback((next: number) => {
-    if (next < 0 || next >= filtered.length || next === index) return;
-    setDir(next > index ? "right" : "left");
-    setAnimKey(k => k + 1);
-    setIndex(next);
-  }, [index, filtered.length]);
-
-  const prev = () => navigate(index - 1);
-  const next = () => navigate(index + 1);
-
-  // keyboard nav
-  useEffect(() => {
-    const h = (e: KeyboardEvent) => {
-      if (e.key === "ArrowLeft")  prev();
-      if (e.key === "ArrowRight") next();
-    };
-    window.addEventListener("keydown", h);
-    return () => window.removeEventListener("keydown", h);
-  });
-
-  // drag/swipe
-  const onPointerDown = (e: React.PointerEvent) => {
-    const tag = (e.target as HTMLElement).tagName;
-    if (tag === "A" || tag === "IMG") return;
-    dragging.current  = true;
-    dragStart.current = e.clientX;
-    dragDelta.current = 0;
-    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
-  };
-  const onPointerMove = (e: React.PointerEvent) => {
-    if (!dragging.current) return;
-    dragDelta.current = e.clientX - dragStart.current;
-  };
-  const onPointerUp = () => {
-    if (!dragging.current) return;
-    dragging.current = false;
-    if (dragDelta.current < -50) next();
-    else if (dragDelta.current > 50) prev();
-    dragDelta.current = 0;
-  };
-
-  const current = filtered[index];
-
-  const TABS: FilterTab[] = ["All", "Singles", "Albums"];
+  const TABS: FilterTab[] = ["Singles", "Albums"];
 
   return (
     <div className="relative min-h-screen flex flex-col" style={{ background: "#080508" }}>
       <VideoBackground overlay={0.88} />
+
+      <HoverBackdrop src={hovered?.cover ?? null} />
 
       {/* Subtle top-right radial glow */}
       <div className="fixed inset-0 z-0 pointer-events-none"
@@ -388,7 +360,7 @@ export default function Music() {
               <div className="flex items-center gap-1">
                 {TABS.map(tab => (
                   <button key={tab}
-                    onClick={() => { setFilter(tab); setIndex(0); }}
+                    onClick={() => setFilter(f => (f === tab ? null : tab))}
                     className="flex items-center gap-2 px-4 py-2 text-xs font-bold uppercase tracking-[0.15em] transition-colors duration-200 relative"
                     style={{ color: filter === tab ? "#fff" : "rgba(255,255,255,0.4)" }}
                   >
@@ -416,7 +388,7 @@ export default function Music() {
                 </svg>
                 <input
                   value={search}
-                  onChange={e => { setSearch(e.target.value); setIndex(0); }}
+                  onChange={e => setSearch(e.target.value)}
                   placeholder="Search..."
                   className="pl-9 pr-4 py-2 text-sm text-white/70 placeholder-white/25 rounded-full outline-none transition-all duration-200 focus:ring-1"
                   style={{ background: "rgba(255,255,255,0.07)", border: "1px solid rgba(255,255,255,0.1)", width: "180px" }}
@@ -430,85 +402,27 @@ export default function Music() {
               <span>Newest First</span>
             </div>
 
-            {/* ── Carousel ── */}
+            {/* ── Grid ── */}
             {filtered.length === 0 ? (
               <div className="text-center py-20 text-white/25 text-sm">No releases found.</div>
             ) : (
               <>
                 <style>{ANIM_CSS}</style>
 
-                {/* Main carousel area */}
-                <div className="relative flex items-center justify-center gap-4">
-                  {/* Prev button */}
-                  <button
-                    onClick={prev}
-                    disabled={index === 0}
-                    aria-label="Previous"
-                    className="shrink-0 w-12 h-12 rounded-full flex items-center justify-center text-sm font-bold uppercase tracking-widest transition-all duration-200 disabled:opacity-20 hover:bg-white/10 z-10"
-                    style={{ border: "1px solid rgba(255,255,255,0.15)", color: "rgba(255,255,255,0.6)" }}
-                  >
-                    prev
-                  </button>
-
-                  {/* Side cards + main card */}
-                  <div className="flex items-center gap-3 flex-1 justify-center overflow-hidden" style={{ maxWidth: "900px" }}>
-
-                    {/* Prev partial card */}
-                    <div className="hidden sm:block shrink-0 cursor-pointer transition-all duration-500"
-                      style={{ width: "200px", opacity: 0.4, transform: "scale(0.88) translateX(30px)", transformOrigin: "right center" }}
-                      onClick={prev}
-                    >
-                      {index > 0 && <ReleaseCard release={filtered[index - 1]} isActive={false} />}
-                    </div>
-
-                    {/* Active card — drag/swipe only on this element */}
+                <div
+                  className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-5"
+                  onMouseLeave={() => setHovered(null)}
+                >
+                  {filtered.map((release, i) => (
                     <div
-                      key={animKey}
-                      className={`shrink-0 cursor-grab active:cursor-grabbing ${dir === "right" ? "card-in-right" : dir === "left" ? "card-in-left" : "card-in"}`}
-                      style={{ width: "min(420px, 80vw)" }}
-                      onPointerDown={onPointerDown}
-                      onPointerMove={onPointerMove}
-                      onPointerUp={onPointerUp}
-                      onPointerCancel={onPointerUp}
+                      key={release.id}
+                      className="card-in"
+                      style={{ animationDelay: `${Math.min(i, 12) * 0.03}s` }}
+                      onMouseEnter={() => setHovered(release)}
+                      onFocus={() => setHovered(release)}
                     >
-                      {current && <ReleaseCard release={current} isActive={true} />}
+                      <ReleaseCard release={release} isActive={hovered?.id === release.id} />
                     </div>
-
-                    {/* Next partial card */}
-                    <div className="hidden sm:block shrink-0 cursor-pointer transition-all duration-500"
-                      style={{ width: "200px", opacity: 0.4, transform: "scale(0.88) translateX(-30px)", transformOrigin: "left center" }}
-                      onClick={next}
-                    >
-                      {index < filtered.length - 1 && <ReleaseCard release={filtered[index + 1]} isActive={false} />}
-                    </div>
-                  </div>
-
-                  {/* Next button */}
-                  <button
-                    onClick={next}
-                    disabled={index === filtered.length - 1}
-                    aria-label="Next"
-                    className="shrink-0 w-12 h-12 rounded-full flex items-center justify-center text-sm font-bold uppercase tracking-widest transition-all duration-200 disabled:opacity-20 z-10"
-                    style={{ background: "rgba(255,0,144,0.15)", border: "1px solid rgba(255,0,144,0.3)", color: "#FF0090" }}
-                  >
-                    next
-                  </button>
-                </div>
-
-                {/* Dot indicators */}
-                <div className="flex items-center justify-center gap-2 mt-8">
-                  {filtered.map((_, i) => (
-                    <button
-                      key={i}
-                      onClick={() => navigate(i)}
-                      aria-label={`Release ${i + 1}`}
-                      className="rounded-full transition-all duration-300"
-                      style={{
-                        width: i === index ? "20px" : "6px",
-                        height: "6px",
-                        background: i === index ? "#FF0090" : "rgba(255,255,255,0.2)",
-                      }}
-                    />
                   ))}
                 </div>
               </>
