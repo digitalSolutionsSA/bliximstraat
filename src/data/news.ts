@@ -5,6 +5,7 @@
 // cover images live in /Graphics/Articles/
 // ─────────────────────────────────────────────────────────────────
 import article1Cover from "../../Graphics/Articles/article1.png";
+import article2Cover from "../../Graphics/Articles/article2.jpeg";
 
 export type NewsBlock =
   | { type: "paragraph"; text: string }
@@ -21,6 +22,63 @@ export type NewsArticle = {
 };
 
 export const NEWS: NewsArticle[] = [
+  {
+    slug: "van-sonlandpark-tot-30-miljoen-streams",
+    title: "Van Sonlandpark tot meer as 30 miljoen streams – die verhaal van Blixim Straat",
+    date: "2026-07-20",
+    excerpt:
+      "Toe Pieter Daniël Groesbeek in 2022 begin werk het aan die idee van Blixim Straat, was daar geen waarborg dat dit ooit sou werk nie. Vandag het hy meer as 30 miljoen globale streams.",
+    cover: article2Cover,
+    body: [
+      {
+        type: "paragraph",
+        text: "Toe Pieter Daniël Groesbeek in 2022 die eerste keer begin werk het aan die idee van Blixim Straat, was daar geen waarborg dat dit ooit sou werk nie.",
+      },
+      {
+        type: "paragraph",
+        text: "Live optredes het moeiliker geraak, en hy het besef dat die manier waarop mense nuwe musiek ontdek, besig was om te verander. Hy het begin navorsing doen oor platforms soos TikTok en met nuwe KI-musiektegnologieë geëksperimenteer om te verstaan hoe dit kreatiwiteit kan ondersteun. Vir Pieter was dit egter nog altyd net 'n hulpmiddel — die liedjies, emosies en stories moes steeds uit sy eie pen kom.",
+      },
+      {
+        type: "paragraph",
+        text: "Vir meer as 'n jaar het hy navorsing gedoen, honderde lirieke geskryf, met verskillende style geëksperimenteer en sy eie unieke klank ontwikkel. Byna niks uit daardie tyd is gepubliseer nie. Hy het gewag totdat die musiek reg gevoel het.",
+      },
+      {
+        type: "paragraph",
+        text: "Op 7 Augustus 2024 is die eerste Blixim Straat-liedjies amptelik vrygestel.",
+      },
+      {
+        type: "paragraph",
+        text: "Vandag, minder as twee jaar later, het Blixim Straat meer as 30 miljoen globale streams en views op Spotify, YouTube en Apple Music opgebou en genereer die projek gemiddeld meer as drie miljoen streams per maand.",
+      },
+      {
+        type: "paragraph",
+        text: "Vir iemand wat in Sonlandpark, Vereeniging grootgeword het en reeds op 13-jarige ouderdom kitaar begin speel het, is dit 'n droom wat waar geword het.",
+      },
+      {
+        type: "paragraph",
+        text: "\"Ek het nog altyd daarvan gedroom dat allerdaagse mense eendag my musiek sal geniet,\" sê Pieter. \"Maar ek kon my nooit voorstel dat byna miljoene mense regoor die wêreld daarna sou luister nie.\"",
+      },
+      { type: "heading", text: "'n Treffer wat ses weke lank viral gegaan het" },
+      {
+        type: "paragraph",
+        text: "Een van die grootste mylpale was die treffer \"Sy is op haar mooiste in my geskeurde T-shirt\", wat vir ses opeenvolgende weke op Spotify se South Africa Viral Top 50 verskyn het en daarna nog maande op die ranglys gebly het. Dit het gewys dat die lied organies deur al hoe meer luisteraars ontdek is.",
+      },
+      { type: "heading", text: "Ver meer as net streaming" },
+      {
+        type: "paragraph",
+        text: "Die sukses strek verder as streaming. Blixim Straat het reeds verskeie live vertonings gelewer, tree steeds by feeste en geleenthede op en het onderhoude gevoer met Gold FM, Radio Sonder Grense (RSG) en Groot FM. Pieter dien ook as beoordelaar vir die FAK se Skryf'it-kompetisie, waar hy sy ervaring as liedjieskrywer met nuwe talent deel.",
+      },
+      { type: "heading", text: "Net die begin" },
+      {
+        type: "paragraph",
+        text: "Met ongeveer 30 jaar se musikale ervaring agter hom, bewys Pieter Daniël Groesbeek dat passie, nuuskierigheid en volharding steeds die belangrikste bestanddele vir sukses is.",
+      },
+      {
+        type: "paragraph",
+        text: "Vir Blixim Straat is 30 miljoen streams nie die eindbestemming nie. Dit is net die begin.",
+      },
+    ],
+  },
   {
     slug: "kunstenaar-wat-miljoene-streams-bou",
     title: "Die kunstenaar wat miljoene streams bou, sonder om op tradisionele radio staat te maak",
