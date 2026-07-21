@@ -52,6 +52,11 @@ export default function NewsArticle() {
                 style={{ background: "linear-gradient(to top, rgba(0,0,0,0.85), rgba(0,0,0,0.15) 60%)" }}
               />
             </motion.div>
+            {article.coverCaption && (
+              <p className="text-center text-xs text-white/35 italic px-4 pt-2 pb-1">
+                {article.coverCaption}
+              </p>
+            )}
 
             <PageContainer className="py-10 sm:py-14">
               <Link
@@ -104,6 +109,37 @@ export default function NewsArticle() {
                           </li>
                         ))}
                       </ul>
+                    );
+                  }
+                  if (block.type === "richParagraph") {
+                    return (
+                      <p key={i} className="text-sm md:text-base text-white/60 leading-relaxed">
+                        {block.segments.map((seg, j) =>
+                          seg.href ? (
+                            <a
+                              key={j}
+                              href={seg.href}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="font-medium transition-colors"
+                              style={{ color: "#FF0090" }}
+                              onMouseEnter={e => (e.currentTarget.style.color = "#ff40b0")}
+                              onMouseLeave={e => (e.currentTarget.style.color = "#FF0090")}
+                            >
+                              {seg.text}
+                            </a>
+                          ) : (
+                            <span key={j}>{seg.text}</span>
+                          )
+                        )}
+                      </p>
+                    );
+                  }
+                  if (block.type === "quote") {
+                    return (
+                      <p key={i} className="text-sm md:text-base font-semibold text-white leading-relaxed pl-4" style={{ borderLeft: "3px solid #FF0090" }}>
+                        {block.text}
+                      </p>
                     );
                   }
                   return (
