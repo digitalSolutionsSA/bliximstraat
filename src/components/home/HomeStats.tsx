@@ -4,9 +4,9 @@ import { SONGS } from "../../data/songs";
 
 // ── UPDATE STREAMING NUMBERS HERE ────────────────────────────────────────────
 const STREAMING_DATA = [
-  { platform: "YouTube",     raw: 16.5, suffix: "M+", label: "Total Views",   color: "#FF3B3B" },
-  { platform: "Spotify",     raw: 11.9, suffix: "M+", label: "Streams",       color: "#1DB954" },
-  { platform: "Apple Music", raw: 2.1,  suffix: "M+", label: "Streams",       color: "#FF6B81" },
+  { platform: "YouTube",     raw: 18.7, suffix: "M+", label: "Total Views",   color: "#FF3B3B" },
+  { platform: "Spotify",     raw: 13.1, suffix: "M+", label: "Streams",       color: "#1DB954" },
+  { platform: "Apple Music", raw: 2.3,  suffix: "M+", label: "Streams",       color: "#FF6B81" },
   { platform: "TikTok",      raw: 5,    suffix: "M+", label: "Views",         color: "#69C9D0" },
 ];
 

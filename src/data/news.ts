@@ -7,6 +7,7 @@
 import article1Cover from "../../Graphics/Articles/article1.png";
 import article2Cover from "../../Graphics/Articles/article2.jpeg";
 import article3Cover from "../../Graphics/Articles/bxm_jakkals.png";
+import competitionCover from "../../Graphics/Articles/article3.jpeg";
 
 export type NewsSegment = { text: string; href?: string };
 
@@ -33,6 +34,57 @@ const WWLJ = "https://youtu.be/NWkKcvO1tQU?si=EBT8_HFDr0lolc8G";
 const HS = "https://youtu.be/_T9Mo5N2drw?si=4xuzKF2x-xH3ovb9";
 
 export const NEWS: NewsArticle[] = [
+  {
+    slug: "vind-die-lirieke-kompetisie-wenner",
+    title: "Meer as net 'n kompetisie – 'n viering van die mense agter Blixim Straat se musiek",
+    date: "2026-07-05",
+    excerpt:
+      "Toe Blixim Straat die \"Vind die lirieke\"-kompetisie aangekondig het, was die doel eenvoudig: om mense op 'n prettige manier aan sy musiek bloot te stel. Meer as 1 000 inskrywings later het Fielies met die R2 000 kontantprys weggestap.",
+    cover: competitionCover,
+    body: [
+      {
+        type: "paragraph",
+        text: "Toe Blixim Straat die \"Vind die lirieke\"-kompetisie aangekondig het, was die doel eenvoudig: om mense op 'n prettige manier aan sy musiek bloot te stel. Die uitdaging was om te bepaal in watter liedjie die woorde \"sagte hande\" voorkom. As aansporing was daar R2 000 kontant op die spel.",
+      },
+      {
+        type: "paragraph",
+        text: "Die antwoord? \"Hoe Jy My Soen\", wat op 7 Augustus 2024 vrygestel is.",
+      },
+      {
+        type: "paragraph",
+        text: "Wat daarna gebeur het, het alle verwagtinge oortref. Meer as 1 000 inskrywings is ontvang, maar slegs 14 deelnemers het die korrekte antwoord ingestuur. Dit wys net hoe uniek die uitdaging was en hoeveel mense bereid was om deur Blixim Straat se musiek te luister om die regte antwoord te vind.",
+      },
+      {
+        type: "paragraph",
+        text: "Uit die 14 korrekte inskrywings is die wenner op 5 Julie lukraak gekies, en geluk aan Fielies, wat met die R2 000 kontantprys weggestap het.",
+      },
+      {
+        type: "paragraph",
+        text: "Maar hierdie kompetisie was nooit net oor die geld nie. Dit het gegaan oor die musiek, die stories agter die liedjies en die ongelooflike gemeenskap wat oor die afgelope paar jaar rondom Blixim Straat ontstaan het. Elke inskrywing, elke luisteraar, elke deel op sosiale media en elke intekenaar het gehelp om die musiek verder te neem as wat ooit verwag is.",
+      },
+      {
+        type: "paragraph",
+        text: "Die sukses van hierdie kompetisie het gewys hoe sterk en lojaal die Blixim Straat-gemeenskap is. Daarom is daar reeds planne vir nóg 'n kompetisie – en dié keer gaan dit nóg groter wees.",
+      },
+      { type: "heading", text: "Op na 20 000 YouTube-intekenare" },
+      {
+        type: "paragraph",
+        text: "Sodra Blixim Straat se YouTube-kanaal 20 000 intekenare bereik, sal daar weer 'n kompetisie aangebied word. Hierdie keer sal die pryse meer as dubbel soveel werd wees as die vorige kompetisie. Dit is Blixim Straat se manier om iets terug te gee aan die mense wat die musiek ondersteun, deel en saam laat groei.",
+      },
+      {
+        type: "paragraph",
+        text: "Aan elke persoon wat geluister het, deelgeneem het, kommentaar gelewer het, die musiek gedeel het of bloot van die begin af deel van hierdie reis was – baie dankie. Julle ondersteuning beteken meer as wat woorde ooit kan beskryf. Elke stroom, elke intekening en elke boodskap van aanmoediging maak dit moontlik om aan te hou skep en nuwe musiek uit te bring.",
+      },
+      {
+        type: "paragraph",
+        text: "Die beste is nog voor. Op na 20 000 YouTube-intekenare – en nog baie musiek, verrassings en onvergeetlike oomblikke saam.",
+      },
+      {
+        type: "quote",
+        text: "Dankie dat julle deel is van die Blixim Straat-familie.",
+      },
+    ],
+  },
   {
     slug: "kunstenaars-mekaar-inspireer-blixim-straat-jakkals-vibes",
     title: "Wanneer kunstenaars mekaar inspireer: Blixim Straat en Jakkals Vibes se suksesvolle liedjie-uitruiling",
