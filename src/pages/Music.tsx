@@ -328,7 +328,7 @@ export default function Music() {
             >
               {/* Cover */}
               <div className="shrink-0 w-40 h-40 sm:w-52 sm:h-52 overflow-hidden">
-                <img src="/covers/huiwer.jpeg" alt="Ek Huiwer"
+                <img src="/covers/lente.jpeg" alt="Lente In Jou Oë"
                   className="w-full h-full object-cover block" />
               </div>
 
@@ -338,12 +338,12 @@ export default function Music() {
                   ✦ Latest Release
                 </p>
                 <h2 className="text-2xl sm:text-3xl font-black text-white leading-tight mb-1">
-                  Ek Huiwer
+                  Lente In Jou Oë
                 </h2>
                 <p className="text-sm text-white/40 mb-5">Album &nbsp;·&nbsp; 2026</p>
                 <div className="flex flex-wrap gap-2">
                   {PLATFORMS.slice(0, 3).map(p => (
-                    <a key={p.label} href={p.label === "YouTube" ? "https://youtu.be/CdoeecTKx5E" : p.href} target="_blank" rel="noreferrer"
+                    <a key={p.label} href={p.label === "YouTube" ? "https://youtu.be/VJNQUzuFOrg" : p.href} target="_blank" rel="noreferrer"
                       className="flex items-center gap-2 px-4 py-2 rounded-full text-[11px] font-bold uppercase tracking-[0.12em] transition-all duration-200 hover:brightness-125"
                       style={{ background: "rgba(255,255,255,0.07)", color: p.color, border: "1px solid rgba(255,255,255,0.1)" }}
                     >
