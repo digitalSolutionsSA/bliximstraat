@@ -11,6 +11,7 @@ import News from "./pages/News";
 import NewsArticle from "./pages/NewsArticle";
 
 import CookieConsent from "./components/CookieConsent";
+import MerchCartModal from "./components/merch-cart/MerchCartModal";
 
 function Placeholder({ title }: { title: string }) {
   return (
@@ -274,6 +275,7 @@ export default function App() {
     <BrowserRouter>
       <BootLoader show={booting} />
       <CookieConsent privacyPath="/privacy" brandName="BliximStraat" />
+      <MerchCartModal />
       <Routes>
         <Route path="/" element={<Home />} />
         <Route path="/music" element={<Music />} />

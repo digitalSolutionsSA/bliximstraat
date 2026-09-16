@@ -6,12 +6,15 @@ import App from "./App.tsx";
 
 import { AuthProvider } from "./contexts/AuthContext";
 import { CartProvider } from "./contexts/CartContext";
+import { MerchCartProvider } from "./contexts/MerchCartContext";
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <AuthProvider>
       <CartProvider>
-        <App />
+        <MerchCartProvider>
+          <App />
+        </MerchCartProvider>
       </CartProvider>
     </AuthProvider>
   </StrictMode>

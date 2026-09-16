@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { NavLink as RouterNavLink, useLocation } from "react-router-dom";
 import { X, Menu } from "lucide-react";
+import MerchCartButton from "../merch-cart/MerchCartButton";
 
 type NavbarProps = {
   overlayOnHome?: boolean;
@@ -148,6 +149,8 @@ export default function Navbar({ overlayOnHome = true }: NavbarProps) {
 
             <div className="w-px h-4 mx-1" style={{ background: "rgba(255,255,255,0.10)" }} />
 
+            <MerchCartButton />
+
             <RouterNavLink
               to="/bookings"
               onClick={playClickAudio}
@@ -158,16 +161,19 @@ export default function Navbar({ overlayOnHome = true }: NavbarProps) {
             </RouterNavLink>
           </div>
 
-          {/* ── Mobile hamburger ── */}
-          <button
-            type="button"
-            className="md:hidden ml-auto p-2 text-white/55 hover:text-white transition-colors"
-            onClick={() => setMobileOpen(v => !v)}
-            aria-label={mobileOpen ? "Close menu" : "Open menu"}
-            aria-expanded={mobileOpen}
-          >
-            {mobileOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
-          </button>
+          {/* ── Mobile: cart + hamburger ── */}
+          <div className="md:hidden ml-auto flex items-center gap-1">
+            <MerchCartButton />
+            <button
+              type="button"
+              className="p-2 text-white/55 hover:text-white transition-colors"
+              onClick={() => setMobileOpen(v => !v)}
+              aria-label={mobileOpen ? "Close menu" : "Open menu"}
+              aria-expanded={mobileOpen}
+            >
+              {mobileOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+            </button>
+          </div>
         </div>
       </header>
 

@@ -1,7 +1,10 @@
 import { useState, useRef, useEffect, useCallback } from "react";
+import { useSearchParams } from "react-router-dom";
+import { CheckCircle2, XCircle } from "lucide-react";
 import Navbar from "../components/layout/Navbar";
 import Footer from "../components/layout/Footer";
 import VideoBackground from "../components/layout/VideoBackground";
+import { useMerchCart } from "../contexts/MerchCartContext";
 
 import imgBlueCap from "../../Graphics/merch/blue-cap.png";
 import imgBlueCheaperCap from "../../Graphics/merch/blue-cheaper-cap.png";
@@ -140,22 +143,26 @@ const MERCH: MerchItem[] = [
   },
 ];
 
-const WHATSAPP_NUMBER = "27759572550";
-
-function buildWhatsappLink(item: MerchItem) {
-  const sizeNote =
-    item.sizes.length === 1 && item.sizes[0] === "One Size"
-      ? ""
-      : " — Size: [please fill in]";
-  const msg = encodeURIComponent(
-    `Hi! I'd like to order the ${item.name} (R${item.priceZar})${sizeNote}. Please confirm availability and delivery details.`
-  );
-  return `https://wa.me/${WHATSAPP_NUMBER}?text=${msg}`;
-}
-
 const CATEGORIES: Category[] = ["All", "Shirts", "Caps", "Accessories"];
 
 export default function Merch() {
+  const cart = useMerchCart();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const paymentStatus = searchParams.get("payment");
+  const [selectedSizes, setSelectedSizes] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    if (paymentStatus === "success") {
+      cart.clearCart();
+    }
+  }, [paymentStatus]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  function dismissBanner() {
+    searchParams.delete("payment");
+    searchParams.delete("order_id");
+    setSearchParams(searchParams, { replace: true });
+  }
+
   const [activeCategory, setActiveCategory] = useState<Category>("All");
   const [activeIndex, setActiveIndex] = useState(0);
   const [dragging, setDragging] = useState(false);
@@ -194,6 +201,8 @@ export default function Merch() {
 
   // Touch / mouse drag
   const onPointerDown = (e: React.PointerEvent) => {
+    // Don't hijack clicks on buttons/links (size picker, Add to Cart, thumbnails)
+    if ((e.target as HTMLElement).closest("button, a")) return;
     setDragging(true);
     dragStartX.current = e.clientX;
     dragDelta.current = 0;
@@ -233,9 +242,28 @@ export default function Merch() {
               </p>
               <h1 className="text-4xl md:text-5xl font-light tracking-tight text-white">Merch</h1>
               <p className="mt-2 text-sm text-white/40 max-w-lg">
-                Official BliximStraat gear. Order via WhatsApp — we'll confirm availability. Deliveries are standardized at R120.00 PER ORDER within South Africa.
+                Official BliximStraat gear, shipped to your door. Deliveries are standardized at R120.00 PER ORDER within South Africa.
               </p>
             </header>
+
+            {/* Payment return banners */}
+            {paymentStatus === "success" && (
+              <div className="mb-8 flex items-start gap-3 rounded-2xl border border-green-500/30 bg-green-500/10 px-5 py-4 text-sm text-green-200">
+                <CheckCircle2 size={18} className="shrink-0 mt-0.5" />
+                <div className="flex-1">
+                  <strong className="block text-green-100">Payment received!</strong>
+                  <span>We've got your order and will be in touch to confirm delivery.</span>
+                </div>
+                <button onClick={dismissBanner} className="text-green-200/60 hover:text-green-100 text-xs">Dismiss</button>
+              </div>
+            )}
+            {paymentStatus === "cancelled" && (
+              <div className="mb-8 flex items-start gap-3 rounded-2xl border border-white/15 bg-white/5 px-5 py-4 text-sm text-white/70">
+                <XCircle size={18} className="shrink-0 mt-0.5" />
+                <div className="flex-1">Payment was cancelled. Your cart is still saved if you'd like to try again.</div>
+                <button onClick={dismissBanner} className="text-white/40 hover:text-white/80 text-xs">Dismiss</button>
+              </div>
+            )}
 
             {/* Category tabs */}
             <div className="flex items-center gap-1 mb-10">
@@ -335,22 +363,36 @@ export default function Merch() {
                         </p>
 
                         {/* Sizes */}
-                        <div className="mt-8">
-                          <p className="text-[10px] uppercase tracking-[0.22em] text-white/30 mb-3">
-                            Sizes
-                          </p>
-                          <div className="flex flex-wrap gap-2">
-                            {item.sizes.map((size) => (
-                              <span
-                                key={size}
-                                className="px-3 py-1.5 text-xs font-medium text-white/70 rounded-md"
-                                style={{ border: "1px solid rgba(255,255,255,0.14)" }}
-                              >
-                                {size}
-                              </span>
-                            ))}
+                        {item.sizes.length > 1 || item.sizes[0] !== "One Size" ? (
+                          <div className="mt-8">
+                            <p className="text-[10px] uppercase tracking-[0.22em] text-white/30 mb-3">
+                              Size
+                            </p>
+                            <div className="flex flex-wrap gap-2">
+                              {item.sizes.map((size) => {
+                                const isSelected = (selectedSizes[item.id] ?? item.sizes[0]) === size;
+                                return (
+                                  <button
+                                    key={size}
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setSelectedSizes((prev) => ({ ...prev, [item.id]: size }));
+                                    }}
+                                    className="px-3 py-1.5 text-xs font-medium rounded-md transition-colors"
+                                    style={{
+                                      color: isSelected ? "#000" : "rgba(255,255,255,0.7)",
+                                      background: isSelected ? "#fff" : "transparent",
+                                      border: isSelected ? "1px solid #fff" : "1px solid rgba(255,255,255,0.14)",
+                                    }}
+                                  >
+                                    {size}
+                                  </button>
+                                );
+                              })}
+                            </div>
                           </div>
-                        </div>
+                        ) : null}
                       </div>
 
                       <div className="mt-10">
@@ -359,15 +401,23 @@ export default function Merch() {
                           <span className="text-xs text-white/30">ZAR</span>
                         </div>
 
-                        <a
-                          href={buildWhatsappLink(item)}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="block w-full text-center py-3.5 text-sm font-medium text-black bg-white rounded-lg hover:bg-white/90 transition-colors"
-                          onClick={(e) => e.stopPropagation()}
+                        <button
+                          type="button"
+                          disabled={item.isPreorder}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            cart.addItem({
+                              id: item.id,
+                              name: item.name,
+                              size: selectedSizes[item.id] ?? item.sizes[0],
+                              priceCents: item.priceZar * 100,
+                              image: item.image,
+                            });
+                          }}
+                          className="block w-full text-center py-3.5 text-sm font-medium text-black bg-white rounded-lg hover:bg-white/90 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                         >
-                          Order via WhatsApp
-                        </a>
+                          {item.isPreorder ? "Available Soon" : "Add to Cart"}
+                        </button>
                       </div>
                     </div>
                   </div>
@@ -449,7 +499,7 @@ export default function Merch() {
             )}
 
             <p className="mt-12 text-xs text-white/25 text-center">
-              All orders handled via WhatsApp. Delivery within South Africa.
+              Secure checkout via PayFast. Delivery within South Africa only.
             </p>
           </div>
         </main>
