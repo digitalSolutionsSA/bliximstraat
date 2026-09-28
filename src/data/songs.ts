@@ -1,5 +1,5 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// BLIXIMSTRAAT — Full discography (90 songs)
+// BLIXIMSTRAAT — Full discography (98 songs)
 // Covers: /public/covers/*.{jpg,png}  — local assets, always available
 // youtubeUrl: direct video link when confirmed, channel link otherwise
 // ─────────────────────────────────────────────────────────────────────────────
@@ -23,6 +23,89 @@ const COVER   = (file: string) => `/covers/${file}`;
 export const hasVideo = (s: Song) => s.youtubeUrl.includes("watch?v=");
 
 export const SONGS: Song[] = [
+
+  // ── Liefde x Verlange — album (2026) ────────────────────────────────────────
+  {
+    id: "klein-pikkewyn",
+    title: "Klein Pikkewyn",
+    artist: "BliximStraat",
+    year: "2026",
+    genre: "Afrikaans EDM",
+    album: "Liefde x Verlange",
+    albumUrl: YT("Jbj5wskIFVQ"),
+    youtubeUrl: YT("Jbj5wskIFVQ"),
+    coverUrl: COVER("liefde-verlange.png"),
+  },
+  {
+    id: "dit-is-altyd-somer-by-jou",
+    title: "Dit Is Altyd Somer By Jou",
+    artist: "BliximStraat",
+    year: "2026",
+    genre: "Afrikaans EDM",
+    album: "Liefde x Verlange",
+    youtubeUrl: YT("NP2CAkyJaQI"),
+    coverUrl: COVER("liefde-verlange.png"),
+  },
+  {
+    id: "ek-het-jou-gevind",
+    title: "Ek Het Jou Gevind",
+    artist: "BliximStraat",
+    year: "2026",
+    genre: "Afrikaans EDM",
+    album: "Liefde x Verlange",
+    youtubeUrl: YT("WpF692VIQls"),
+    coverUrl: COVER("liefde-verlange.png"),
+  },
+  {
+    id: "ek-kan-nie-sonder-jou-liefde-verlange",
+    title: "Ek Kan Nie Sonder Jou",
+    artist: "BliximStraat",
+    year: "2026",
+    genre: "Afrikaans EDM",
+    album: "Liefde x Verlange",
+    youtubeUrl: YT("V4K0mqZNvbQ"),
+    coverUrl: COVER("liefde-verlange.png"),
+  },
+  {
+    id: "ek-sien-myself",
+    title: "Ek Sien Myself",
+    artist: "BliximStraat",
+    year: "2026",
+    genre: "Afrikaans EDM",
+    album: "Liefde x Verlange",
+    youtubeUrl: YT("bp1--67h9Ag"),
+    coverUrl: COVER("liefde-verlange.png"),
+  },
+  {
+    id: "ek-hoor-my-pa-in-die-reen",
+    title: "Ek Hoor My Pa In Die Reën",
+    artist: "BliximStraat",
+    year: "2026",
+    genre: "Afrikaans EDM",
+    album: "Liefde x Verlange",
+    youtubeUrl: YT("ccyZQNWY4kY"),
+    coverUrl: COVER("liefde-verlange.png"),
+  },
+  {
+    id: "jy-sing-soos-jy-bid",
+    title: "Jy Sing Soos Jy Bid",
+    artist: "BliximStraat",
+    year: "2026",
+    genre: "Afrikaans EDM",
+    album: "Liefde x Verlange",
+    youtubeUrl: YT("idftrVW6cho"),
+    coverUrl: COVER("liefde-verlange.png"),
+  },
+  {
+    id: "winde-waai",
+    title: "Winde Waai",
+    artist: "BliximStraat",
+    year: "2026",
+    genre: "Afrikaans EDM",
+    album: "Liefde x Verlange",
+    youtubeUrl: YT("sopAhWuTwYg"),
+    coverUrl: COVER("liefde-verlange.png"),
+  },
 
   // ── Lente In Jou Oë — album (2026) ────────────────────────────────────────
   {
