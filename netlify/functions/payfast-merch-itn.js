@@ -14,7 +14,10 @@ function json(statusCode, body) {
 }
 
 function pfEncode(value) {
-  return encodeURIComponent(String(value).trim()).replace(/%20/g, "+");
+  // Must match PHP urlencode() (what PayFast signs with): encodeURIComponent leaves !'()*~ unescaped.
+  return encodeURIComponent(String(value).trim())
+    .replace(/[!'()*~]/g, (c) => "%" + c.charCodeAt(0).toString(16).toUpperCase())
+    .replace(/%20/g, "+");
 }
 
 function generateSignature(pairs, passphrase) {
