@@ -20,13 +20,13 @@ function pfEncode(value) {
     .replace(/%20/g, "+");
 }
 
+// ITN signatures cover every received field in order — blank ones included (unlike checkout,
+// where blanks are skipped). PayFast sends plenty of blanks (custom_int1=, custom_str3=, …).
 function generateSignature(pairs, passphrase) {
   let pfOutput = "";
   for (const [key, value] of pairs) {
     if (key === "signature") continue;
-    if (value !== "" && value !== undefined && value !== null) {
-      pfOutput += `${key}=${pfEncode(value)}&`;
-    }
+    pfOutput += `${key}=${pfEncode(value ?? "")}&`;
   }
   let getString = pfOutput.slice(0, -1);
   if (passphrase) {
@@ -54,7 +54,10 @@ export const handler = async (event) => {
 
   const PASSPHRASE = process.env.PAYFAST_PASSPHRASE || "";
 
-  const params = new URLSearchParams(event.body || "");
+  const rawBody = event.isBase64Encoded
+    ? Buffer.from(event.body || "", "base64").toString("utf8")
+    : event.body || "";
+  const params = new URLSearchParams(rawBody);
   const pairs = Array.from(params.entries());
   const fields = Object.fromEntries(pairs);
 
@@ -71,18 +74,19 @@ export const handler = async (event) => {
       return json(400, { error: "Invalid signature" });
     }
 
-    // 2) Source IP check (best-effort — never blocks on DNS failure)
+    // 2) Source IP check — log only. PayFast's ITN servers don't share IPs with www.payfast.co.za,
+    // so blocking here rejects genuine notifications. The signature (with passphrase) and the
+    // server-to-server validate call below are what actually authenticate the request.
     const sourceOk = await isKnownPayfastSource(sourceIp);
     if (!sourceOk) {
-      console.warn("payfast-merch-itn: request from unrecognized IP", sourceIp);
-      return json(400, { error: "Unrecognized source" });
+      console.log("payfast-merch-itn: note — source IP not in www/w1w/w2w lookup", sourceIp);
     }
 
     // 3) Server-to-server validation with PayFast
     const validateRes = await fetch(PAYFAST_VALIDATE_URL, {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      body: event.body || "",
+      body: rawBody,
     });
     const validateText = (await validateRes.text()).trim();
     if (validateText !== "VALID") {
