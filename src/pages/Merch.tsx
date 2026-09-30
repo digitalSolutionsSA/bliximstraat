@@ -5,6 +5,7 @@ import Navbar from "../components/layout/Navbar";
 import Footer from "../components/layout/Footer";
 import VideoBackground from "../components/layout/VideoBackground";
 import { useMerchCart } from "../contexts/MerchCartContext";
+import { DELIVERY_FEE_CENTS } from "../lib/merchConfig";
 
 import imgBlueCap from "../../Graphics/merch/blue-cap.png";
 import imgBlueCheaperCap from "../../Graphics/merch/blue-cheaper-cap.png";
@@ -242,7 +243,10 @@ export default function Merch() {
               </p>
               <h1 className="text-4xl md:text-5xl font-light tracking-tight text-white">Merch</h1>
               <p className="mt-2 text-sm text-white/40 max-w-lg">
-                Official BliximStraat gear, shipped to your door. Deliveries are standardized at R120.00 PER ORDER within South Africa.
+                Official BliximStraat gear, shipped to your door.{" "}
+                {DELIVERY_FEE_CENTS
+                  ? `Deliveries are standardized at R${(DELIVERY_FEE_CENTS / 100).toFixed(2)} PER ORDER within South Africa.`
+                  : "FREE delivery within South Africa."}
               </p>
             </header>
 

@@ -1,5 +1,6 @@
 import crypto from "crypto";
 import dns from "dns";
+import { sendCustomerConfirmation, sendOrderNotification } from "./lib/order-notify.js";
 
 const PAYFAST_VALIDATE_URL = "https://www.payfast.co.za/eng/query/validate";
 const PAYFAST_HOSTNAMES = ["www.payfast.co.za", "w1w.payfast.co.za", "w2w.payfast.co.za"];
@@ -103,6 +104,20 @@ export const handler = async (event) => {
       amount_gross: fields.amount_gross,
       email: fields.email_address,
     });
+
+    // Notify the team so they can ship, and send the customer a receipt. Never fail
+    // the ITN over an email problem — PayFast would just keep retrying.
+    const [teamMail, customerMail] = await Promise.allSettled([
+      sendOrderNotification(fields),
+      sendCustomerConfirmation(fields),
+    ]);
+    for (const [label, result] of [["team", teamMail], ["customer", customerMail]]) {
+      if (result.status === "fulfilled") {
+        console.log(`payfast-merch-itn: ${label} email`, result.value?.id || result.value);
+      } else {
+        console.error(`payfast-merch-itn: ${label} email failed`, result.reason?.message || result.reason);
+      }
+    }
 
     return json(200, { ok: true, order_id });
   } catch (err) {

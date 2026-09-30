@@ -17,7 +17,20 @@ const CATALOG = {
   "band":               { name: "BliximStraat Band",       priceCents: 3000,  sizes: ["One Size"] },
 };
 
-const DELIVERY_FEE_CENTS = 12000; // R120 flat, standardized per order (South Africa only)
+// Flat per-order delivery fee in Rand (South Africa only). Defaults to R120; override with the
+// VITE_MERCH_DELIVERY_FEE env var — the cart (src/lib/merchConfig.ts) reads the same var so totals match.
+function deliveryFeeCents() {
+  const raw = process.env.VITE_MERCH_DELIVERY_FEE;
+  const n = Number(raw);
+  const rand = raw === undefined || raw === "" || !Number.isFinite(n) || n < 0 ? 120 : n;
+  return Math.round(rand * 100);
+}
+
+// Must match SA_PROVINCES in src/lib/merchConfig.ts
+const PROVINCES = [
+  "Eastern Cape", "Free State", "Gauteng", "KwaZulu-Natal", "Limpopo",
+  "Mpumalanga", "North West", "Northern Cape", "Western Cape",
+];
 
 const PAYFAST_PROCESS_URL = "https://www.payfast.co.za/eng/process";
 
@@ -95,11 +108,13 @@ export const handler = async (event) => {
     const address1 = String(customer.address1 ?? "").trim();
     const address2 = String(customer.address2 ?? "").trim();
     const city = String(customer.city ?? "").trim();
+    const province = String(customer.province ?? "").trim();
     const postalCode = String(customer.postalCode ?? "").trim();
 
-    if (!name || !email || !phone || !address1 || !city || !postalCode) {
+    if (!name || !email || !phone || !address1 || !city || !province || !postalCode) {
       return json(400, { error: "Missing required delivery details" });
     }
+    if (!PROVINCES.includes(province)) return json(400, { error: "Please select a valid province" });
     if (!email.includes("@")) return json(400, { error: "Invalid email address" });
 
     let subtotalCents = 0;
@@ -119,7 +134,7 @@ export const handler = async (event) => {
       return { name: product.name, size, quantity: qty };
     });
 
-    const totalCents = subtotalCents + DELIVERY_FEE_CENTS;
+    const totalCents = subtotalCents + deliveryFeeCents();
     const order_id = crypto.randomUUID();
 
     const origin = getOrigin(event);
@@ -143,7 +158,7 @@ export const handler = async (event) => {
       item_name: `BliximStraat Merch Order (${cleanItems.reduce((n, it) => n + it.quantity, 0)} items)`,
       item_description: cleanItems.map((it) => `${it.quantity}x ${it.name} (${it.size})`).join(", ").slice(0, 255),
       custom_str1: [address1, address2].filter(Boolean).join(", ").slice(0, 255),
-      custom_str2: `${city}, ${postalCode}`.slice(0, 255),
+      custom_str2: `${city}, ${province}, ${postalCode}`.slice(0, 255),
     };
 
     const signature = generateSignature(pfData, PASSPHRASE);

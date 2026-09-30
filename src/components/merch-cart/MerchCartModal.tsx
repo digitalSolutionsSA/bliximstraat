@@ -1,8 +1,7 @@
 import { useState } from "react";
 import { X, Trash2, Minus, Plus } from "lucide-react";
 import { useMerchCart } from "../../contexts/MerchCartContext";
-
-const DELIVERY_FEE_CENTS = 12000; // R120 flat — must match netlify/functions/create-payfast-merch-checkout.js
+import { DELIVERY_FEE_CENTS, SA_PROVINCES } from "../../lib/merchConfig";
 
 function moneyZAR(cents: number) {
   return new Intl.NumberFormat("en-ZA", { style: "currency", currency: "ZAR" }).format(cents / 100);
@@ -15,10 +14,11 @@ type CustomerForm = {
   address1: string;
   address2: string;
   city: string;
+  province: string;
   postalCode: string;
 };
 
-const EMPTY_FORM: CustomerForm = { name: "", email: "", phone: "", address1: "", address2: "", city: "", postalCode: "" };
+const EMPTY_FORM: CustomerForm = { name: "", email: "", phone: "", address1: "", address2: "", city: "", province: "", postalCode: "" };
 
 export default function MerchCartModal() {
   const cart = useMerchCart();
@@ -38,7 +38,7 @@ export default function MerchCartModal() {
   async function submitOrder() {
     setErrorMsg(null);
 
-    if (!form.name.trim() || !form.email.trim() || !form.phone.trim() || !form.address1.trim() || !form.city.trim() || !form.postalCode.trim()) {
+    if (!form.name.trim() || !form.email.trim() || !form.phone.trim() || !form.address1.trim() || !form.city.trim() || !form.province || !form.postalCode.trim()) {
       setErrorMsg("Please fill in all required delivery details.");
       return;
     }
@@ -178,7 +178,7 @@ export default function MerchCartModal() {
               </div>
               <div className="flex items-center justify-between text-sm text-white/70 mb-4">
                 <span>Delivery (South Africa)</span>
-                <span className="tabular-nums">{moneyZAR(DELIVERY_FEE_CENTS)}</span>
+                <span className="tabular-nums">{DELIVERY_FEE_CENTS ? moneyZAR(DELIVERY_FEE_CENTS) : "Free"}</span>
               </div>
               <div className="flex items-center justify-between mb-4">
                 <div className="text-white/70">Total</div>
@@ -217,6 +217,20 @@ export default function MerchCartModal() {
                 <Field label="City *" value={form.city} onChange={(v) => updateField("city", v)} />
                 <Field label="Postal Code *" value={form.postalCode} onChange={(v) => updateField("postalCode", v)} />
               </div>
+              <label className="block">
+                <span className="block text-xs text-white/50 mb-1.5">Province *</span>
+                <select
+                  value={form.province}
+                  onChange={(e) => updateField("province", e.target.value)}
+                  className="w-full rounded-xl px-3.5 py-2.5 text-sm text-white bg-white/5 outline-none transition-all focus:ring-1 focus:ring-white/30"
+                  style={{ border: "1px solid rgba(255,255,255,0.12)" }}
+                >
+                  <option value="" disabled className="bg-neutral-900">Select a province</option>
+                  {SA_PROVINCES.map((p) => (
+                    <option key={p} value={p} className="bg-neutral-900">{p}</option>
+                  ))}
+                </select>
+              </label>
             </div>
 
             <div className="border-t border-white/10 px-5 py-4">
