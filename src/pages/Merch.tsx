@@ -268,6 +268,13 @@ export default function Merch() {
                 <button onClick={dismissBanner} className="text-white/40 hover:text-white/80 text-xs">Dismiss</button>
               </div>
             )}
+            {paymentStatus === "failed" && (
+              <div className="mb-8 flex items-start gap-3 rounded-2xl border border-red-500/30 bg-red-500/10 px-5 py-4 text-sm text-red-200">
+                <XCircle size={18} className="shrink-0 mt-0.5" />
+                <div className="flex-1">Your payment didn't go through and you have not been charged. Your cart is still saved — please try again.</div>
+                <button onClick={dismissBanner} className="text-red-200/60 hover:text-red-100 text-xs">Dismiss</button>
+              </div>
+            )}
 
             {/* Category tabs */}
             <div className="flex items-center gap-1 mb-10">
@@ -503,7 +510,7 @@ export default function Merch() {
             )}
 
             <p className="mt-12 text-xs text-white/25 text-center">
-              Secure checkout via PayFast. Delivery within South Africa only.
+              Secure checkout via Yoco. Delivery within South Africa only.
             </p>
           </div>
         </main>

@@ -6,6 +6,10 @@
 //   ORDER_REPLY_TO      – where customer replies go (default: first ORDER_NOTIFY_TO address)
 
 const RESEND_URL = "https://api.resend.com/emails";
+
+// The Yoco account is shared (music store, other sites), so merch checkouts are tagged with
+// this metadata source and yoco-merch-webhook ignores every payment without it.
+export const MERCH_SOURCE = "bliximstraat-merch";
 const DEFAULT_FROM = "BliximStraat <orders@bliximstraat.com>";
 
 function esc(value) {
@@ -25,13 +29,20 @@ function teamAddresses() {
   return (process.env.ORDER_NOTIFY_TO || "").split(",").map((s) => s.trim()).filter(Boolean);
 }
 
-function orderDetails(fields) {
+function rand(cents) {
+  return (Number(cents || 0) / 100).toFixed(2);
+}
+
+// `order` is the merch checkout metadata Yoco echoes back on payment.succeeded,
+// plus amount_cents and payment_id from the payment itself.
+function orderDetails(order) {
   return {
-    customerName: [fields.name_first, fields.name_last].filter(Boolean).join(" "),
-    items: String(fields.item_description || "").split(", ").filter(Boolean),
-    address: [fields.custom_str1, fields.custom_str2].filter(Boolean),
+    customerName: String(order.customer_name || ""),
+    items: String(order.items || "").split(", ").filter(Boolean),
+    address: [order.address, order.city_line].filter(Boolean),
     // Short, human-friendly reference for the customer to quote.
-    ref: String(fields.m_payment_id || "").slice(0, 8).toUpperCase(),
+    ref: String(order.order_id || "").slice(0, 8).toUpperCase(),
+    amount: rand(order.amount_cents),
   };
 }
 
@@ -47,7 +58,7 @@ async function sendEmail(payload, idempotencyKey) {
     headers: {
       Authorization: `Bearer ${apiKey}`,
       "Content-Type": "application/json",
-      // PayFast can resend the same ITN — this stops duplicate emails for one payment.
+      // Yoco retries webhooks until it gets a 2xx — this stops duplicate emails for one payment.
       "Idempotency-Key": idempotencyKey,
     },
     body: JSON.stringify({ from: process.env.ORDER_NOTIFY_FROM || DEFAULT_FROM, ...payload }),
@@ -58,19 +69,19 @@ async function sendEmail(payload, idempotencyKey) {
   return data;
 }
 
-export async function sendOrderNotification(fields) {
+export async function sendOrderNotification(order) {
   const to = teamAddresses();
   if (!to.length) {
     console.warn("order-notify: ORDER_NOTIFY_TO not set — skipping team email");
     return { skipped: true };
   }
 
-  const { customerName, items, address, ref } = orderDetails(fields);
+  const { customerName, items, address, ref, amount } = orderDetails(order);
 
   const html = `
 <div style="font-family:Arial,sans-serif;max-width:600px;color:#111">
   <h2 style="margin:0 0 4px">New merch order — ready to ship</h2>
-  <p style="margin:0 0 20px;color:#666">Payment confirmed by PayFast.</p>
+  <p style="margin:0 0 20px;color:#666">Payment confirmed by Yoco.</p>
 
   <h3 style="margin:0 0 8px">Items</h3>
   <ul style="margin:0 0 20px;padding-left:20px">
@@ -81,21 +92,21 @@ export async function sendOrderNotification(fields) {
   <table style="border-collapse:collapse;margin-bottom:20px">
     ${row("Name", esc(customerName))}
     ${row("Address", address.map(esc).join("<br>"))}
-    ${row("Email", fields.email_address ? `<a href="mailto:${esc(fields.email_address)}">${esc(fields.email_address)}</a>` : "")}
-    ${row("Phone", esc(fields.cell_number))}
+    ${row("Email", order.email ? `<a href="mailto:${esc(order.email)}">${esc(order.email)}</a>` : "")}
+    ${row("Phone", esc(order.phone))}
   </table>
 
   <h3 style="margin:0 0 8px">Payment</h3>
   <table style="border-collapse:collapse">
-    ${row("Amount paid", `R ${esc(fields.amount_gross)}`)}
+    ${row("Amount paid", `R ${esc(amount)}`)}
     ${row("Order ref", esc(ref))}
-    ${row("Order ID", esc(fields.m_payment_id))}
-    ${row("PayFast ID", esc(fields.pf_payment_id))}
+    ${row("Order ID", esc(order.order_id))}
+    ${row("Yoco payment ID", esc(order.payment_id))}
   </table>
 </div>`;
 
   const text = [
-    "New merch order — ready to ship (payment confirmed by PayFast)",
+    "New merch order — ready to ship (payment confirmed by Yoco)",
     "",
     "ITEMS",
     ...items.map((it) => `- ${it}`),
@@ -103,36 +114,36 @@ export async function sendOrderNotification(fields) {
     "SHIP TO",
     customerName,
     ...address,
-    fields.email_address ? `Email: ${fields.email_address}` : null,
-    fields.cell_number ? `Phone: ${fields.cell_number}` : null,
+    order.email ? `Email: ${order.email}` : null,
+    order.phone ? `Phone: ${order.phone}` : null,
     "",
-    `Amount paid: R ${fields.amount_gross}`,
+    `Amount paid: R ${amount}`,
     `Order ref: ${ref}`,
-    `Order ID: ${fields.m_payment_id}`,
-    `PayFast ID: ${fields.pf_payment_id}`,
+    `Order ID: ${order.order_id}`,
+    `Yoco payment ID: ${order.payment_id}`,
   ].filter((l) => l !== null).join("\n");
 
   return sendEmail(
     {
       to,
-      reply_to: fields.email_address || undefined,
-      subject: `🛒 New merch order #${ref} — R ${fields.amount_gross} — ${customerName || "customer"}`,
+      reply_to: order.email || undefined,
+      subject: `🛒 New merch order #${ref} — R ${amount} — ${customerName || "customer"}`,
       html,
       text,
     },
-    `merch-order-team-${fields.m_payment_id}`
+    `merch-order-team-${order.order_id}`
   );
 }
 
-export async function sendCustomerConfirmation(fields) {
-  const email = String(fields.email_address || "").trim();
+export async function sendCustomerConfirmation(order) {
+  const email = String(order.email || "").trim();
   if (!email.includes("@")) {
-    console.warn("order-notify: no customer email on ITN — skipping confirmation");
+    console.warn("order-notify: no customer email on order — skipping confirmation");
     return { skipped: true };
   }
 
-  const { customerName, items, address, ref } = orderDetails(fields);
-  const firstName = fields.name_first || customerName || "there";
+  const { customerName, items, address, ref, amount } = orderDetails(order);
+  const firstName = customerName.split(" ")[0] || "there";
   const replyTo = process.env.ORDER_REPLY_TO || teamAddresses()[0];
 
   const html = `
@@ -147,7 +158,7 @@ export async function sendCustomerConfirmation(fields) {
   </ul>
 
   <table style="border-collapse:collapse;margin-bottom:20px">
-    ${row("Total paid", `R ${esc(fields.amount_gross)} <span style="color:#666">(incl. delivery)</span>`)}
+    ${row("Total paid", `R ${esc(amount)} <span style="color:#666">(incl. delivery)</span>`)}
     ${row("Delivering to", [esc(customerName), ...address.map(esc)].filter(Boolean).join("<br>"))}
   </table>
 
@@ -164,7 +175,7 @@ export async function sendCustomerConfirmation(fields) {
     `YOUR ORDER #${ref}`,
     ...items.map((it) => `- ${it}`),
     "",
-    `Total paid: R ${fields.amount_gross} (incl. delivery)`,
+    `Total paid: R ${amount} (incl. delivery)`,
     "",
     "DELIVERING TO",
     customerName,
@@ -183,6 +194,6 @@ export async function sendCustomerConfirmation(fields) {
       html,
       text,
     },
-    `merch-order-customer-${fields.m_payment_id}`
+    `merch-order-customer-${order.order_id}`
   );
 }

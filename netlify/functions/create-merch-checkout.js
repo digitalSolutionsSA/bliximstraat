@@ -1,4 +1,5 @@
 import crypto from "crypto";
+import { MERCH_SOURCE } from "./lib/order-notify.js";
 
 // Server-side price/size truth — never trust prices from the client.
 // Keep in sync with src/pages/Merch.tsx if products change.
@@ -32,8 +33,6 @@ const PROVINCES = [
   "Mpumalanga", "North West", "Northern Cape", "Western Cape",
 ];
 
-const PAYFAST_PROCESS_URL = "https://www.payfast.co.za/eng/process";
-
 function json(statusCode, body) {
   return {
     statusCode,
@@ -60,38 +59,12 @@ function getOrigin(event) {
   return "http://localhost:8888";
 }
 
-function pfEncode(value) {
-  // Must match PHP urlencode() (what PayFast signs with): encodeURIComponent leaves !'()*~ unescaped.
-  return encodeURIComponent(String(value).trim())
-    .replace(/[!'()*~]/g, (c) => "%" + c.charCodeAt(0).toString(16).toUpperCase())
-    .replace(/%20/g, "+");
-}
-
-function generateSignature(data, passphrase) {
-  let pfOutput = "";
-  for (const key in data) {
-    if (Object.prototype.hasOwnProperty.call(data, key) && data[key] !== "" && data[key] !== undefined && data[key] !== null) {
-      pfOutput += `${key}=${pfEncode(data[key])}&`;
-    }
-  }
-  let getString = pfOutput.slice(0, -1);
-  if (passphrase) {
-    getString += `&passphrase=${pfEncode(passphrase)}`;
-  }
-  return crypto.createHash("md5").update(getString).digest("hex");
-}
-
 export const handler = async (event) => {
   try {
     if (event.httpMethod !== "POST") return json(405, { error: "Method not allowed" });
 
-    const MERCHANT_ID = process.env.PAYFAST_MERCHANT_ID;
-    const MERCHANT_KEY = process.env.PAYFAST_MERCHANT_KEY;
-    const PASSPHRASE = process.env.PAYFAST_PASSPHRASE || "";
-
-    if (!MERCHANT_ID || !MERCHANT_KEY) {
-      return json(500, { error: "Missing PAYFAST_MERCHANT_ID or PAYFAST_MERCHANT_KEY env vars" });
-    }
+    const YOCO_SECRET_KEY = process.env.YOCO_SECRET_KEY;
+    if (!YOCO_SECRET_KEY) return json(500, { error: "Missing YOCO_SECRET_KEY env var" });
 
     let body;
     try {
@@ -139,41 +112,50 @@ export const handler = async (event) => {
 
     const totalCents = subtotalCents + deliveryFeeCents();
     const order_id = crypto.randomUUID();
-
     const origin = getOrigin(event);
-    const amount = (totalCents / 100).toFixed(2);
-    const [firstName, ...rest] = name.split(" ");
+    const returnUrl = (status) =>
+      `${origin}/merch?payment=${status}&order_id=${encodeURIComponent(order_id)}`;
 
-    // No database: the full order (items, contact, delivery address) travels with the
-    // payment itself and lands in the PayFast merchant dashboard for fulfillment.
-    const pfData = {
-      merchant_id: MERCHANT_ID,
-      merchant_key: MERCHANT_KEY,
-      return_url: `${origin}/merch?payment=success&order_id=${encodeURIComponent(order_id)}`,
-      cancel_url: `${origin}/merch?payment=cancelled&order_id=${encodeURIComponent(order_id)}`,
-      notify_url: `${origin}/.netlify/functions/payfast-merch-itn`,
-      name_first: firstName || name,
-      name_last: rest.join(" ") || "",
-      email_address: email,
-      cell_number: phone,
-      m_payment_id: order_id,
-      amount,
-      item_name: `BliximStraat Merch Order (${cleanItems.reduce((n, it) => n + it.quantity, 0)} items)`,
-      item_description: cleanItems.map((it) => `${it.quantity}x ${it.name} (${it.size})`).join(", ").slice(0, 255),
-      custom_str1: [address1, address2].filter(Boolean).join(", ").slice(0, 255),
-      custom_str2: `${city}, ${province}, ${postalCode}`.slice(0, 255),
+    // No database: the full order (items, contact, delivery address) travels in the checkout
+    // metadata. Yoco echoes it back on the payment.succeeded webhook, which emails it out.
+    const metadata = {
+      source: MERCH_SOURCE,
+      order_id,
+      customer_name: name.slice(0, 200),
+      email: email.slice(0, 200),
+      phone: phone.slice(0, 50),
+      address: [address1, address2].filter(Boolean).join(", ").slice(0, 255),
+      city_line: `${city}, ${province}, ${postalCode}`.slice(0, 255),
+      items: cleanItems.map((it) => `${it.quantity}x ${it.name} (${it.size})`).join(", ").slice(0, 1000),
     };
 
-    const signature = generateSignature(pfData, PASSPHRASE);
-
-    return json(200, {
-      payfast_url: PAYFAST_PROCESS_URL,
-      params: { ...pfData, signature },
-      order_id,
+    const res = await fetch("https://payments.yoco.com/api/checkouts", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${YOCO_SECRET_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        amount: totalCents,
+        currency: "ZAR",
+        successUrl: returnUrl("success"),
+        cancelUrl: returnUrl("cancelled"),
+        failureUrl: returnUrl("failed"),
+        metadata,
+      }),
     });
+
+    const data = await res.json().catch(() => null);
+
+    if (!res.ok || !data?.redirectUrl) {
+      console.error("create-merch-checkout: Yoco create checkout failed", res.status, data);
+      return json(res.ok ? 502 : res.status, { error: "Could not start Yoco checkout", yoco: data });
+    }
+
+    return json(200, { checkoutUrl: data.redirectUrl, order_id });
   } catch (err) {
     return json(500, {
-      error: "Internal Server Error in create-payfast-merch-checkout",
+      error: "Internal Server Error in create-merch-checkout",
       details: err?.message || String(err),
       extra: err?.data || null,
     });

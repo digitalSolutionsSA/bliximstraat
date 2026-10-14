@@ -49,7 +49,7 @@ export default function MerchCartModal() {
 
     setBusy(true);
     try {
-      const res = await fetch("/.netlify/functions/create-payfast-merch-checkout", {
+      const res = await fetch("/.netlify/functions/create-merch-checkout", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -60,24 +60,13 @@ export default function MerchCartModal() {
 
       const data = await res.json().catch(() => null);
 
-      if (!res.ok || !data?.payfast_url || !data?.params) {
+      if (!res.ok || !data?.checkoutUrl) {
         setErrorMsg(data?.error || "Could not start checkout. Please try again.");
         setBusy(false);
         return;
       }
 
-      const formEl = document.createElement("form");
-      formEl.method = "POST";
-      formEl.action = data.payfast_url;
-      Object.entries(data.params as Record<string, string>).forEach(([k, v]) => {
-        const input = document.createElement("input");
-        input.type = "hidden";
-        input.name = k;
-        input.value = v;
-        formEl.appendChild(input);
-      });
-      document.body.appendChild(formEl);
-      formEl.submit();
+      window.location.href = data.checkoutUrl;
     } catch (err: any) {
       setErrorMsg(err?.message || "Something went wrong starting checkout.");
       setBusy(false);
@@ -254,10 +243,10 @@ export default function MerchCartModal() {
                   onClick={submitOrder}
                   disabled={busy}
                 >
-                  {busy ? "Redirecting…" : "Pay with PayFast"}
+                  {busy ? "Redirecting…" : "Pay with Card (Yoco)"}
                 </button>
               </div>
-              <div className="mt-3 text-center text-xs text-white/40">Secure checkout via PayFast</div>
+              <div className="mt-3 text-center text-xs text-white/40">Secure checkout via Yoco</div>
             </div>
           </>
         )}
